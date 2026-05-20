@@ -810,6 +810,155 @@ body{
   .tech-grid{grid-template-columns:repeat(3,1fr);}
   .time-slots{grid-template-columns:repeat(2,1fr);}
 }
+
+/* ══ CLAUDE AI CHAT WIDGET ══ */
+.ai-chat-fab{
+  position:fixed;bottom:28px;right:22px;z-index:600;
+  width:54px;height:54px;border-radius:50%;
+  background:linear-gradient(135deg,var(--gold) 0%,var(--gold2) 100%);
+  border:none;cursor:pointer;font-size:22px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 20px rgba(201,146,42,0.45);
+  transition:transform 0.2s,box-shadow 0.2s;
+}
+.ai-chat-fab:hover{transform:scale(1.1);box-shadow:0 6px 28px rgba(201,146,42,0.55);}
+.chat-panel{
+  position:fixed;bottom:94px;right:22px;z-index:599;
+  width:350px;max-width:calc(100vw - 36px);
+  height:510px;max-height:calc(100vh - 110px);
+  background:var(--cream);border-radius:20px;
+  box-shadow:0 12px 60px rgba(15,13,11,0.22);
+  display:flex;flex-direction:column;overflow:hidden;
+  transform:scale(0.88) translateY(24px);opacity:0;
+  transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  pointer-events:none;
+}
+.chat-panel.open{transform:scale(1) translateY(0);opacity:1;pointer-events:all;}
+.chat-header{
+  background:var(--ink);padding:13px 14px;
+  display:flex;align-items:center;gap:10px;
+  border-radius:20px 20px 0 0;flex-shrink:0;
+}
+.chat-avatar{
+  width:34px;height:34px;border-radius:50%;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;
+}
+.chat-hinfo{flex:1;}
+.chat-hname{font-size:13.5px;font-weight:600;color:#fff;}
+.chat-hstatus{font-size:10.5px;color:var(--gold2);}
+.chat-hstatus::before{content:'● ';color:#4ade80;}
+.chat-hclose{background:rgba(255,255,255,0.1);border:none;border-radius:8px;padding:5px 9px;color:rgba(255,255,255,0.6);cursor:pointer;font-size:15px;}
+.chat-hclose:hover{background:rgba(255,255,255,0.18);color:#fff;}
+.chat-msgs{
+  flex:1;overflow-y:auto;padding:13px;
+  display:flex;flex-direction:column;gap:9px;scroll-behavior:smooth;
+}
+.chat-msgs::-webkit-scrollbar{width:3px;}
+.chat-msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.msg{max-width:84%;display:flex;flex-direction:column;gap:2px;}
+.msg.ai{align-self:flex-start;}
+.msg.user{align-self:flex-end;}
+.msg-bub{
+  padding:9px 13px;border-radius:16px;font-size:13px;line-height:1.5;
+}
+.msg.ai .msg-bub{background:var(--warm);color:var(--ink);border-radius:4px 16px 16px 16px;}
+.msg.user .msg-bub{background:var(--ink);color:#fff;border-radius:16px 16px 4px 16px;}
+.msg-t{font-size:10px;color:rgba(100,90,80,0.38);padding:0 3px;}
+.msg.user .msg-t{text-align:right;}
+.chat-typing-ind{
+  display:none;align-self:flex-start;
+  padding:10px 14px;background:var(--warm);border-radius:4px 16px 16px 16px;
+}
+.chat-typing-ind.show{display:flex;}
+.dots{display:flex;gap:4px;align-items:center;}
+.dots span{
+  width:7px;height:7px;border-radius:50%;background:var(--gold);
+  animation:dp 1.2s infinite;
+}
+.dots span:nth-child(2){animation-delay:0.2s;}
+.dots span:nth-child(3){animation-delay:0.4s;}
+@keyframes dp{0%,80%,100%{transform:scale(0.55);opacity:0.35;}40%{transform:scale(1);opacity:1;}}
+.chat-quick{padding:0 13px 9px;display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;}
+.cqb{
+  background:var(--gold-pale);border:1px solid rgba(201,146,42,0.22);
+  border-radius:20px;padding:4px 9px;font-size:11px;
+  color:var(--gold);cursor:pointer;white-space:nowrap;
+  font-family:'Outfit',sans-serif;transition:all 0.15s;
+}
+.cqb:hover{background:var(--gold-dim);border-color:var(--gold);}
+.chat-inp-row{
+  padding:9px 13px;border-top:1px solid var(--border);
+  display:flex;gap:7px;flex-shrink:0;background:var(--cream);
+}
+.chat-inp{
+  flex:1;border:1px solid var(--border);border-radius:11px;
+  padding:8px 11px;font-size:13px;font-family:'Outfit',sans-serif;
+  outline:none;resize:none;background:#fff;transition:border-color 0.2s;
+}
+.chat-inp:focus{border-color:var(--gold);}
+.chat-send-btn{
+  background:var(--gold);border:none;border-radius:11px;
+  padding:8px 13px;color:#fff;cursor:pointer;font-size:17px;
+  transition:background 0.2s;flex-shrink:0;
+}
+.chat-send-btn:hover{background:var(--gold2);color:var(--ink);}
+.chat-send-btn:disabled{background:var(--border);cursor:not-allowed;}
+
+/* ══ AI INSIGHTS (Dashboard) ══ */
+.ai-ins-card{
+  background:linear-gradient(135deg,rgba(201,146,42,0.07),rgba(201,146,42,0.02));
+  border:1px solid rgba(201,146,42,0.18);border-radius:16px;
+  padding:18px;margin-bottom:18px;
+}
+.ai-ins-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.ai-ins-ico{
+  width:36px;height:36px;background:var(--gold-dim);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;
+}
+.ai-ins-title{font-size:15px;font-weight:600;color:var(--ink);}
+.ai-ins-sub{font-size:11px;color:rgba(100,90,80,0.45);}
+.ai-ins-refresh{margin-left:auto;background:none;border:1px solid rgba(201,146,42,0.25);border-radius:8px;padding:5px 10px;font-size:11px;color:var(--gold);cursor:pointer;font-family:'Outfit',sans-serif;}
+.ai-ins-refresh:hover{background:var(--gold-dim);}
+.ai-ins-body{font-size:13px;color:rgba(30,26,22,0.8);line-height:1.68;}
+.ai-ins-body p{margin:0 0 11px;}
+.ai-ins-btns{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;}
+.ai-qbtn{
+  background:var(--gold-dim);border:1px solid rgba(201,146,42,0.28);
+  border-radius:10px;padding:7px 13px;font-size:11.5px;
+  color:var(--gold);cursor:pointer;font-family:'Outfit',sans-serif;transition:all 0.2s;
+}
+.ai-qbtn:hover{background:var(--gold);color:#fff;}
+.ai-ask-inp{
+  border:1px solid var(--border);border-radius:10px;
+  padding:8px 12px;font-size:13px;font-family:'Outfit',sans-serif;
+  outline:none;width:100%;background:rgba(255,255,255,0.7);
+  transition:border-color 0.2s;
+}
+.ai-ask-inp:focus{border-color:var(--gold);}
+.ai-spin-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 0;}
+.ai-spinner{
+  width:36px;height:36px;border-radius:50%;
+  border:3px solid var(--gold-dim);border-top-color:var(--gold);
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.ai-spin-lbl{font-size:12px;color:rgba(100,90,80,0.5);}
+
+/* ══ Claude key card in Settings ══ */
+.claude-cfg-card{
+  background:linear-gradient(135deg,rgba(201,146,42,0.06),rgba(58,111,168,0.04));
+  border:2px solid rgba(201,146,42,0.22);border-radius:16px;padding:18px;
+  margin-bottom:18px;
+}
+.claude-cfg-title{font-size:16px;font-weight:700;color:var(--ink);margin-bottom:4px;}
+.claude-cfg-sub{font-size:12px;color:rgba(100,90,80,0.5);margin-bottom:14px;}
+.claude-model-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--gold-dim);border:1px solid rgba(201,146,42,0.25);
+  border-radius:20px;padding:4px 12px;font-size:11.5px;color:var(--gold);
+  font-weight:600;margin-bottom:14px;
+}
 </style>
 </head>
 <body>
@@ -826,6 +975,35 @@ body{
   </div>
   <span class="nav-store">Riverland Nails Spa</span>
 </nav>
+
+<!-- ══ AI CHAT WIDGET ══ -->
+<button class="ai-chat-fab" id="chat-fab" onclick="toggleChat()" title="Chat with J-AI">💬</button>
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <div class="chat-avatar">🤖</div>
+    <div class="chat-hinfo">
+      <div class="chat-hname">J-AI Concierge</div>
+      <div class="chat-hstatus">Online · Powered by Claude</div>
+    </div>
+    <button class="chat-hclose" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="chat-msgs" id="chat-messages"></div>
+  <div class="chat-typing-ind" id="chat-typing-ind">
+    <div class="dots"><span></span><span></span><span></span></div>
+  </div>
+  <div class="chat-quick" id="chat-quick" style="display:none">
+    <button class="cqb" onclick="quickAsk('What services do you offer?')">Services & prices</button>
+    <button class="cqb" onclick="quickAsk('How do I book an appointment?')">How to book</button>
+    <button class="cqb" onclick="quickAsk('What are your hours?')">Hours</button>
+    <button class="cqb" onclick="quickAsk('Do you have any promotions?')">Promotions</button>
+  </div>
+  <div class="chat-inp-row">
+    <textarea class="chat-inp" id="chat-input" placeholder="Ask J-AI anything…" rows="1"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMsg();}"
+      oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
+    <button class="chat-send-btn" id="chat-send" onclick="sendChatMsg()">➤</button>
+  </div>
+</div>
 
 <!-- ══════ KIOSK ══════ -->
 <div id="kiosk" class="screen on">
@@ -1071,6 +1249,24 @@ body{
         <div class="kpi k4"><div class="kpi-label">AI Upsells Today</div><div class="kpi-val" id="kpi-up">0</div><div class="kpi-note">suggested at check-in</div></div>
       </div>
 
+      <!-- AI Insights -->
+      <div class="ai-ins-card">
+        <div class="ai-ins-hdr">
+          <div class="ai-ins-ico">🧠</div>
+          <div>
+            <div class="ai-ins-title">AI Business Insights</div>
+            <div class="ai-ins-sub">Powered by Claude · Updates on demand</div>
+          </div>
+          <button class="ai-ins-refresh" onclick="loadDashInsights()">↻ Refresh</button>
+        </div>
+        <div class="ai-ins-body" id="ai-insights-body">
+          <div class="ai-spin-wrap">
+            <div class="ai-spinner"></div>
+            <div class="ai-spin-lbl">Loading insights…</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Unified table -->
       <div class="unified-card" style="margin-bottom:18px;">
         <div class="uc-head">
@@ -1120,6 +1316,40 @@ body{
       <div style="font-family:'Playfair Display',serif;font-size:24px;margin-bottom:4px;">🤖 AI Greeting Settings</div>
       <div style="font-size:13px;color:rgba(100,90,80,0.5)">Customize how the AI welcomes each guest. Changes apply instantly to the kiosk.</div>
     </div>
+    <!-- Claude AI Agent Config -->
+    <div class="claude-cfg-card">
+      <div class="claude-cfg-title">🧠 Claude AI Agent — Core Settings</div>
+      <div class="claude-cfg-sub">Connect Claude to power the chat widget, AI check-in greetings, and dashboard insights.</div>
+      <div class="claude-model-badge">✦ claude-sonnet-4-6 · Latest Claude Model</div>
+      <div class="config-field">
+        <label class="cfg-label">Claude API Key</label>
+        <div style="display:flex;gap:8px;">
+          <input class="cfg-input" id="claude-api-key" type="password" placeholder="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxx" style="flex:1;font-family:monospace;font-size:12px;">
+          <button class="btn-gold" onclick="saveClaudeKey()" style="flex-shrink:0;padding:0 16px;">Save</button>
+        </div>
+        <div style="font-size:11px;color:rgba(100,90,80,0.45);margin-top:6px;">Get your key at console.anthropic.com</div>
+      </div>
+      <div class="config-field">
+        <div class="toggle-row">
+          <div class="tr-info"><div class="tn">AI-powered check-in greetings</div><div class="ts">Claude generates personalized greetings (falls back to templates if API unavailable)</div></div>
+          <label class="tog"><input type="checkbox" id="claude-checkin-toggle" onchange="CLAUDE_CFG.enabled=this.checked"><span class="tog-sl"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div class="tr-info"><div class="tn">AI Chat Widget</div><div class="ts">Floating chat for customers & staff to ask questions</div></div>
+          <label class="tog"><input type="checkbox" checked><span class="tog-sl"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div class="tr-info"><div class="tn">Dashboard AI Insights</div><div class="ts">Auto-generate business insights when viewing dashboard</div></div>
+          <label class="tog"><input type="checkbox" checked id="claude-dash-auto"><span class="tog-sl"></span></label>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-gold" onclick="testClaudeKey()" style="padding:8px 18px;font-size:13px;">Test Connection</button>
+        <button class="btn-outline" onclick="toggleChat()" style="padding:8px 18px;font-size:13px;">Open Chat Widget</button>
+      </div>
+      <div id="claude-test-result" style="margin-top:10px;font-size:12px;display:none;"></div>
+    </div>
+
     <div class="config-grid">
       <!-- Greeting templates -->
       <div class="config-card">
@@ -1450,7 +1680,7 @@ function go(id,btn){
   document.getElementById(id).classList.add('on');
   document.querySelectorAll('.nt').forEach(t=>t.classList.remove('on'));
   if(btn) btn.classList.add('on');
-  if(id==='dashboard') renderDash();
+  if(id==='dashboard'){renderDash();setTimeout(loadDashInsights,400);}
   if(id==='staff') renderStaff();
   if(id==='booking') renderBooking();
   if(id==='ai-config') updatePreview();
@@ -1480,13 +1710,26 @@ function kLookup(){
 }
 function kSimQR(){showGreeting(DB.customers[0]);}
 function showGreeting(c){
-  // Build AI greeting
+  // Build template greeting first (instant)
   const greet=buildGreeting(c);
-  document.getElementById('ai-greet-text').innerHTML=
+  const greetEl=document.getElementById('ai-greet-text');
+  greetEl.innerHTML=
     greet.replace(new RegExp(c.name.split(' ')[0],'g'),`<strong>${c.name.split(' ')[0]}</strong>`)
          .replace(new RegExp(c.tech||'x','g'),`<strong>${c.tech||''}</strong>`);
   // ── SPEAK greeting aloud ──
   speakGreeting(greet);
+  // ── Upgrade to Claude AI greeting if enabled ──
+  if(CLAUDE_CFG.apiKey && CLAUDE_CFG.enabled){
+    buildGreetingAI(c).then(aiGreet=>{
+      if(!aiGreet||aiGreet===greet) return;
+      greetEl.innerHTML=aiGreet
+        .replace(new RegExp(c.name.split(' ')[0],'g'),`<strong>${c.name.split(' ')[0]}</strong>`)
+        .replace(new RegExp(c.tech||'~NF~','g'),`<strong>${c.tech||''}</strong>`);
+      const lastCI=DB.checkins[DB.checkins.length-1];
+      if(lastCI) lastCI.greeting=aiGreet;
+      speakGreeting(aiGreet);
+    });
+  }
 
   // Stats
   document.getElementById('cust-stats-row').innerHTML=`
@@ -2041,6 +2284,248 @@ document.addEventListener('click', function(e) {
   const btn = e.target.closest('.sms-quick-btn');
   if(btn) toast('📱 SMS sent to ' + btn.dataset.name);
 });
+
+// ════════════════════════════════════════
+// CLAUDE AI AGENT
+// ════════════════════════════════════════
+
+const CLAUDE_CFG = {
+  apiKey: '',
+  model: 'claude-sonnet-4-6',
+  enabled: false,
+};
+
+const SALON_SYSTEM = `You are J-AI, the AI concierge for Riverland Nails Spa in Fort Lauderdale, FL.
+You help customers and staff with services, bookings, hours, pricing, and general questions.
+
+SALON INFO:
+- Name: Riverland Nails Spa
+- Address: 2722 Davie Blvd, Fort Lauderdale, FL 33312
+- Hours: Mon–Sat 9 AM–7 PM, Sun 10 AM–5 PM
+- Phone: (954) 555-0100
+
+SERVICES & PRICES:
+- Manicure: $25 · 45 min
+- Pedicure: $35 · 60 min
+- Gel Manicure: $40 · 60 min
+- Full Set Acrylic: $55 · 90 min
+- Full Set + Pedicure: $80 · 120 min
+- Nail Art add-on: from $20 · +20 min
+- Gel Top Coat: +$10 | Paraffin Wax: +$15 | Hot Stone: +$25 | Eyebrow Wax: +$12
+
+TECHNICIANS: TEE, MIA, LISA-D, Vivian, THANH VAN, NGA TRAN (Nina), Sunny, RYAN, AMY, TIM, KHOA (Kyle)
+
+Be warm, concise (2-3 sentences), and friendly. Use emojis sparingly.
+For bookings, direct customers to the Book Appointment tab. Never invent info not listed above.`;
+
+async function callClaude(messages, system) {
+  if (!CLAUDE_CFG.apiKey) throw new Error('No Claude API key — add it in AI Settings');
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': CLAUDE_CFG.apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: CLAUDE_CFG.model,
+      max_tokens: 512,
+      system: system || SALON_SYSTEM,
+      messages,
+    }),
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'API error ' + resp.status);
+  }
+  const data = await resp.json();
+  return data.content[0].text;
+}
+
+// ── Claude key management ──
+function saveClaudeKey() {
+  const key = document.getElementById('claude-api-key').value.trim();
+  if (!key) { toast('⚠️ Please enter your Claude API key'); return; }
+  CLAUDE_CFG.apiKey = key;
+  document.getElementById('claude-api-key').value = key.slice(0,12) + '••••••••' + key.slice(-4);
+  toast('✅ Claude API key saved!');
+}
+
+async function testClaudeKey() {
+  const res = document.getElementById('claude-test-result');
+  res.style.display = 'block';
+  res.style.color = 'rgba(100,90,80,0.6)';
+  res.textContent = '⏳ Testing connection…';
+  try {
+    const reply = await callClaude([{role:'user',content:'Say "J-AI online!" in exactly those words.'}]);
+    res.style.color = 'var(--sage)';
+    res.textContent = '✅ Connected! ' + reply;
+  } catch (e) {
+    res.style.color = 'var(--rose)';
+    res.textContent = '❌ ' + e.message;
+  }
+}
+
+// ════════════════════════════════════════
+// CHAT WIDGET
+// ════════════════════════════════════════
+
+let chatOpen = false;
+let chatHistory = [];
+let chatBusy = false;
+
+function toggleChat() {
+  chatOpen = !chatOpen;
+  const panel = document.getElementById('chat-panel');
+  const fab = document.getElementById('chat-fab');
+  panel.classList.toggle('open', chatOpen);
+  fab.textContent = chatOpen ? '✕' : '💬';
+  if (chatOpen && chatHistory.length === 0) {
+    appendMsg('ai', "Hi! I'm J-AI, your virtual concierge at Riverland Nails Spa. 💅 How can I help you today?");
+    document.getElementById('chat-quick').style.display = 'flex';
+  }
+}
+
+function appendMsg(role, text) {
+  const apiRole = role === 'ai' ? 'assistant' : 'user';
+  chatHistory.push({role: apiRole, content: text});
+  const msgs = document.getElementById('chat-messages');
+  const now = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = `<div class="msg-bub">${text.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</div><div class="msg-t">${now}</div>`;
+  msgs.insertBefore(div, document.getElementById('chat-typing-ind'));
+  msgs.scrollTop = msgs.scrollHeight;
+  document.getElementById('chat-quick').style.display = 'none';
+}
+
+function quickAsk(q) { sendChat(q); }
+
+async function sendChatMsg() {
+  const inp = document.getElementById('chat-input');
+  const text = inp.value.trim();
+  if (!text || chatBusy) return;
+  inp.value = '';
+  inp.style.height = 'auto';
+  sendChat(text);
+}
+
+async function sendChat(text) {
+  appendMsg('user', text);
+  chatBusy = true;
+  document.getElementById('chat-send').disabled = true;
+  const typer = document.getElementById('chat-typing-ind');
+  typer.classList.add('show');
+  const msgs = document.getElementById('chat-messages');
+  msgs.scrollTop = msgs.scrollHeight;
+
+  try {
+    const recent = chatHistory.slice(-12);
+    const reply = await callClaude(recent);
+    typer.classList.remove('show');
+    appendMsg('ai', reply);
+  } catch (e) {
+    typer.classList.remove('show');
+    if (e.message.includes('No Claude API key')) {
+      appendMsg('ai', "To enable AI chat, please add your Claude API key in **AI Settings** → Claude AI Agent section. 🔑");
+    } else {
+      appendMsg('ai', "Sorry, I ran into an issue: " + e.message);
+    }
+    document.getElementById('chat-quick').style.display = 'flex';
+  } finally {
+    chatBusy = false;
+    document.getElementById('chat-send').disabled = false;
+  }
+}
+
+// ════════════════════════════════════════
+// AI ENHANCED CHECK-IN
+// ════════════════════════════════════════
+
+async function buildGreetingAI(cust) {
+  if (!CLAUDE_CFG.apiKey || !CLAUDE_CFG.enabled) return buildGreeting(cust);
+
+  const el = document.getElementById('ai-greet-text');
+  el.innerHTML = '<span style="opacity:0.5;font-size:13px;">✦ AI is personalizing your greeting…</span>';
+
+  const sys = `You are J-AI, the warm and elegant AI concierge at Riverland Nails Spa. Generate a personalized, heartfelt welcome message for a customer checking in. Keep it 1-2 sentences, warm and specific to their history. No quotes, no markdown.`;
+  const vInfo = cust.visits === 0 ? 'First visit ever.' : `Has visited ${cust.visits} time${cust.visits!==1?'s':''}. Last visit: ${cust.lastVisit}.`;
+  const prompt = `Customer: ${cust.name}. ${vInfo}${cust.tech?' Preferred tech: '+cust.tech+'.':''} ${cust.status==='vip'?'VIP customer.':''} ${cust.status==='lapsed'?'Has been away a while.':''} Write a personalized greeting for them checking in right now.`;
+
+  try {
+    return await callClaude([{role:'user',content:prompt}], sys);
+  } catch {
+    return buildGreeting(cust);
+  }
+}
+
+
+// ════════════════════════════════════════
+// DASHBOARD AI INSIGHTS
+// ════════════════════════════════════════
+
+async function loadDashInsights() {
+  const el = document.getElementById('ai-insights-body');
+  if (!CLAUDE_CFG.apiKey) {
+    el.innerHTML = `<p style="color:rgba(100,90,80,0.6);font-size:13px;margin:0 0 12px;">Add your Claude API key in <strong>AI Settings</strong> to unlock AI-powered business insights.</p>
+      <button class="ai-qbtn" onclick="go('ai-config',document.querySelector('.nt:nth-child(5)'))">Configure Claude AI →</button>`;
+    return;
+  }
+  el.innerHTML = `<div class="ai-spin-wrap"><div class="ai-spinner"></div><div class="ai-spin-lbl">Analyzing salon data…</div></div>`;
+
+  const stats = {
+    checkins: DB.checkins.length,
+    newGuests: DB.checkins.filter(x=>x.type==='newc').length,
+    walkIns: DB.checkins.filter(x=>x.type==='walk').length,
+    total: DB.customers.length,
+    upsells: DB.upsells,
+    vips: DB.customers.filter(c=>c.status==='vip').length,
+    lapsed: DB.customers.filter(c=>c.status==='lapsed').length,
+  };
+
+  const sys = `You are a business analyst AI for Riverland Nails Spa. Give concise, actionable insights for a salon owner. Use plain text, no markdown headers. 3-4 sentences total.`;
+  const prompt = `Today is Friday May 15 2026. Salon data: ${stats.checkins} check-ins (${stats.newGuests} new guests, ${stats.walkIns} walk-ins), ${stats.upsells} upsells added, ${stats.total} total customers (${stats.vips} VIP, ${stats.lapsed} lapsed), 5 appointments scheduled. Give 2 key observations and 1 specific action the owner should take today.`;
+
+  try {
+    const insight = await callClaude([{role:'user',content:prompt}], sys);
+    el.innerHTML = `
+      <p style="margin:0 0 12px;">${insight.replace(/\n/g,'<br>')}</p>
+      <div class="ai-ins-btns">
+        <button class="ai-qbtn" onclick="askDashAI('What upsell strategy should I use today?')">Upsell tips</button>
+        <button class="ai-qbtn" onclick="askDashAI('Which lapsed customers should I reach out to first?')">Re-engage lapsed</button>
+        <button class="ai-qbtn" onclick="askDashAI('How can I maximize revenue on a Friday?')">Revenue ideas</button>
+      </div>
+      <input class="ai-ask-inp" id="ai-ask-inp" placeholder="Ask AI anything about your salon…" onkeydown="if(event.key==='Enter')askDashAI()">`;
+  } catch(e) {
+    el.innerHTML = `<p style="color:var(--rose);font-size:13px;margin:0 0 10px;">Error: ${e.message}</p>
+      <button class="ai-qbtn" onclick="loadDashInsights()">↻ Retry</button>`;
+  }
+}
+
+async function askDashAI(q) {
+  const inp = document.getElementById('ai-ask-inp');
+  const question = q || inp?.value.trim();
+  if (!question) return;
+  if (inp) inp.value = '';
+  const el = document.getElementById('ai-insights-body');
+  const prev = el.innerHTML;
+  el.innerHTML = `<div class="ai-spin-wrap"><div class="ai-spinner"></div><div class="ai-spin-lbl">Thinking…</div></div>`;
+
+  const sys = `You are a business analyst AI for Riverland Nails Spa. Answer concisely in 2-3 sentences. Be specific and actionable.`;
+  const ctx = `Salon context: ${DB.checkins.length} check-ins today, ${DB.customers.length} total customers, ${DB.upsells} upsells, ${DB.customers.filter(c=>c.status==='lapsed').length} lapsed customers. Today is Friday.`;
+  try {
+    const answer = await callClaude([{role:'user',content:`${ctx}\n\nQuestion: ${question}`}], sys);
+    el.innerHTML = `
+      <p style="margin:0 0 12px;">${answer.replace(/\n/g,'<br>')}</p>
+      <button class="ai-qbtn" onclick="loadDashInsights()">← Back to overview</button>
+      <input class="ai-ask-inp" id="ai-ask-inp" placeholder="Ask another question…" onkeydown="if(event.key==='Enter')askDashAI()" style="margin-top:10px">`;
+  } catch(e) {
+    el.innerHTML = prev;
+    toast('⚠️ AI error: ' + e.message);
+  }
+}
+
 
 // Init
 renderDash();
