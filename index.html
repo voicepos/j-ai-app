@@ -2042,13 +2042,13 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 // ══════════════════════════════════════════
 const VOICE_CFG = {
   enabled:    true,
-  engine:     'elevenlabs',   // 'elevenlabs' | 'browser'
-  apiKey:     '',             // paste ElevenLabs key here or in Settings
-  voiceId:    'EXAVITQu4vr4xnSDxMaL', // "Sarah" — warm, natural female
-  modelId:    'eleven_turbo_v2',        // fastest + cheapest model
-  stability:  0.50,           // 0=expressive  1=stable
-  similarity: 0.80,           // voice clarity
-  style:      0.30,           // speaking style exaggeration
+  engine:     'elevenlabs',
+  apiKey:     'sk_d4c0b5f6881a68064e25257ec04b43206369571d5ddd2a8d',
+  voiceId:    'EXAVITQu4vr4xnSDxMaL', // Sarah — warm, natural female
+  modelId:    'eleven_multilingual_v2', // highest quality model
+  stability:  0.35,  // lower = more expressive & natural
+  similarity: 0.75,  // voice clarity
+  style:      0.45,  // natural speaking style
   // Browser fallback settings
   rate:  0.92,
   pitch: 1.05,
@@ -2067,10 +2067,20 @@ const EL_VOICES = {
 // ── Strip emojis/symbols for clean TTS ──
 function cleanForSpeech(text) {
   return text
+    // remove all emojis & symbols
     .replace(/[\u{1F000}-\u{1FFFF}]/gu,'')
     .replace(/[\u{2600}-\u{26FF}]/gu,'')
     .replace(/[\u{2700}-\u{27BF}]/gu,'')
-    .replace(/[*_#!~`]/g,'')
+    .replace(/[\u{1F300}-\u{1F9FF}]/gu,'')
+    .replace(/[✦✨★☆•·]/g,'')
+    .replace(/[*_#~`]/g,'')
+    // convert symbols to natural pauses
+    .replace(/—/g,', ')
+    .replace(/\s*·\s*/g,', ')
+    .replace(/\s*\|\s*/g,', ')
+    // ensure sentences end with proper pause
+    .replace(/([.!?])\s+/g,'$1  ')
+    // clean up extra spaces
     .replace(/\s+/g,' ')
     .trim();
 }
