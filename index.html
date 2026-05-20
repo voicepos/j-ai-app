@@ -2045,11 +2045,10 @@ const VOICE_CFG = {
   engine:     'elevenlabs',
   apiKey:     'sk_d4c0b5f6881a68064e25257ec04b43206369571d5ddd2a8d',
   voiceId:    'EXAVITQu4vr4xnSDxMaL', // Sarah — warm, natural female
-  modelId:    'eleven_multilingual_v2', // highest quality model
-  stability:  0.35,  // lower = more expressive & natural
-  similarity: 0.75,  // voice clarity
-  style:      0.45,  // natural speaking style
-  // Browser fallback settings
+  modelId:    'eleven_turbo_v2_5',     // works on all plans including free
+  stability:  0.35,
+  similarity: 0.75,
+  style:      0.45,
   rate:  0.92,
   pitch: 1.05,
 };
@@ -2147,30 +2146,27 @@ async function speakElevenLabs(text) {
         speakBrowser(text);
       }
     } else {
-      // Parse error message
+      let msg = 'HTTP ' + xhr.status;
       try {
         const errText = new TextDecoder().decode(xhr.response);
         const err = JSON.parse(errText);
-        const msg = err.detail?.message || err.detail || 'API error ' + xhr.status;
-        toast('⚠️ ElevenLabs: ' + msg);
-      } catch(e) {
-        toast('⚠️ ElevenLabs error ' + xhr.status + ' — using browser voice');
-      }
+        msg = err.detail?.message || err.detail || msg;
+      } catch(e) {}
       hideVoiceBar();
+      showVoiceError('ElevenLabs lỗi: ' + msg);
       speakBrowser(text);
     }
   };
 
   xhr.onerror = function() {
-    console.error('XHR network error');
     hideVoiceBar();
-    toast('⚠️ Network error — using browser voice');
+    showVoiceError('Không kết nối được ElevenLabs — kiểm tra mạng hoặc CORS');
     speakBrowser(text);
   };
 
   xhr.ontimeout = function() {
     hideVoiceBar();
-    toast('⚠️ Request timed out — using browser voice');
+    showVoiceError('ElevenLabs timeout — đang dùng giọng browser');
     speakBrowser(text);
   };
 
@@ -2256,6 +2252,20 @@ function showVoiceBar(text, isDemo) {
 function hideVoiceBar() {
   const bar = document.getElementById('voice-bar');
   if(bar) bar.style.display = 'none';
+}
+
+function showVoiceError(msg) {
+  let el = document.getElementById('voice-err-bar');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'voice-err-bar';
+    el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#c45c6a;color:#fff;padding:10px 18px;border-radius:100px;font-family:Outfit,sans-serif;font-size:12.5px;font-weight:600;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,0.3);display:flex;align-items:center;gap:10px;max-width:90vw;cursor:pointer;';
+    el.onclick = () => el.remove();
+    document.body.appendChild(el);
+  }
+  el.innerHTML = '⚠️ ' + msg + ' <span style="opacity:0.7;font-size:11px">(tap to dismiss)</span>';
+  el.style.display = 'flex';
+  setTimeout(() => { if(el) el.remove(); }, 6000);
 }
 
 // ── Settings UI helpers ──
