@@ -2043,9 +2043,9 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 const VOICE_CFG = {
   enabled:    true,
   engine:     'elevenlabs',
-  apiKey:     'sk_d4c0b5f6881a68064e25257ec04b43206369571d5ddd2a8d',
-  voiceId:    'EXAVITQu4vr4xnSDxMaL', // Sarah — warm, natural female
-  modelId:    'eleven_turbo_v2_5',     // works on all plans including free
+  apiKey:     localStorage.getItem('jai_el_key') || '',
+  voiceId:    localStorage.getItem('jai_el_voice') || 'EXAVITQu4vr4xnSDxMaL',
+  modelId:    'eleven_turbo_v2_5',
   stability:  0.35,
   similarity: 0.75,
   style:      0.45,
@@ -2286,7 +2286,7 @@ function saveApiKey(){
   const key = document.getElementById('el-api-key').value.trim();
   if(!key){ toast('⚠️ Please enter your API key'); return; }
   VOICE_CFG.apiKey = key;
-  // Mask display after save
+  localStorage.setItem('jai_el_key', key);
   document.getElementById('el-api-key').value = key.slice(0,8)+'••••••••••••'+key.slice(-4);
   toast('✅ ElevenLabs API key saved!');
 }
@@ -2310,9 +2310,9 @@ document.addEventListener('click', function(e) {
 // ════════════════════════════════════════
 
 const CLAUDE_CFG = {
-  apiKey: '',
+  apiKey: localStorage.getItem('jai_claude_key') || '',
   model: 'claude-sonnet-4-6',
-  enabled: false,
+  enabled: !!localStorage.getItem('jai_claude_key'),
 };
 
 const SALON_SYSTEM = `You are J-AI, the AI concierge for Riverland Nails Spa in Fort Lauderdale, FL.
@@ -2368,7 +2368,11 @@ function saveClaudeKey() {
   const key = document.getElementById('claude-api-key').value.trim();
   if (!key) { toast('⚠️ Please enter your Claude API key'); return; }
   CLAUDE_CFG.apiKey = key;
+  CLAUDE_CFG.enabled = true;
+  localStorage.setItem('jai_claude_key', key);
   document.getElementById('claude-api-key').value = key.slice(0,12) + '••••••••' + key.slice(-4);
+  const tog = document.getElementById('claude-checkin-toggle');
+  if (tog) tog.checked = true;
   toast('✅ Claude API key saved!');
 }
 
@@ -2546,6 +2550,22 @@ async function askDashAI(q) {
   }
 }
 
+
+// ── Init: restore saved keys into UI fields ──
+(function initSavedKeys() {
+  const elKey = localStorage.getItem('jai_el_key');
+  if (elKey) {
+    const el = document.getElementById('el-api-key');
+    if (el) el.value = elKey.slice(0,8) + '••••••••••••' + elKey.slice(-4);
+  }
+  const clKey = localStorage.getItem('jai_claude_key');
+  if (clKey) {
+    const el = document.getElementById('claude-api-key');
+    if (el) el.value = clKey.slice(0,12) + '••••••••' + clKey.slice(-4);
+    const tog = document.getElementById('claude-checkin-toggle');
+    if (tog) tog.checked = true;
+  }
+})();
 
 // Init
 renderDash();
