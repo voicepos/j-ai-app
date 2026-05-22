@@ -961,6 +961,9 @@ body{
 }
 </style>
 </head>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <body>
 
 <!-- NAV -->
@@ -1595,9 +1598,30 @@ Nail Art (from $10, +20 min)</textarea>
 <div class="toast" id="toast"></div>
 
 <script>
-// ══════════════════════════════════════════
+// ════════════════════════════════════════
+// FIREBASE
+// ════════════════════════════════════════
+const FB_CFG = {
+  apiKey: "AIzaSyCnnSttUuFAcpO7_fKNfXAEu2Tozvajzu0",
+  authDomain: "j---ai---salon.firebaseapp.com",
+  projectId: "j---ai---salon",
+  storageBucket: "j---ai---salon.firebasestorage.app",
+  messagingSenderId: "720645065435",
+  appId: "1:720645065435:web:ff366a94695bdb1d565afe"
+};
+firebase.initializeApp(FB_CFG);
+const fsdb = firebase.firestore();
+const TODAY = new Date().toISOString().split('T')[0];
+const FS = {
+  customers:    () => fsdb.collection('customers'),
+  checkins:     () => fsdb.collection('checkins'),
+  appointments: () => fsdb.collection('appointments'),
+  activities:   () => fsdb.collection('activities'),
+};
+
+// ════════════════════════════════════════
 // DATA
-// ══════════════════════════════════════════
+// ════════════════════════════════════════
 const DB = {
   customers:[
     {id:1,name:"Jennifer Martinez",phone:"9545550101",visits:18,lastVisit:"May 12",status:"vip",rating:5,tech:"MIA",bday:"03/14",nextAppt:"Today 3:00 PM",svc:"Full Set + Pedicure"},
@@ -1701,11 +1725,35 @@ function dp(k){
   else f=`(${phoneNum}`;
   d.textContent=f; d.classList.add('filled');
 }
-function kLookup(){
+async function kLookup(){
   if(phoneNum.length<7){toast("⚠️ Enter at least 7 digits");return;}
-  const c=DB.customers.find(x=>x.phone.includes(phoneNum));
-  if(c) showGreeting(c);
-  else{toast("Number not found — please register!");setTimeout(()=>kGo('ks-new'),1400);}
+  const btn=document.querySelector('.nk.go');
+  if(btn){btn.textContent='⏳';btn.disabled=true;}
+  try{
+    // Tìm trong Firestore
+    const snap=await FS.customers()
+      .orderBy('phone').startAt(phoneNum).endAt(phoneNum+'')
+      .limit(5).get();
+    let c=null;
+    if(!snap.empty){
+      // Tìm số khớp nhất
+      snap.forEach(d=>{
+        const data={_fid:d.id,...d.data()};
+        if(!c && data.phone && data.phone.replace(/\D/g,'').includes(phoneNum)) c=data;
+      });
+    }
+    // Fallback: tìm local cache
+    if(!c) c=DB.customers.find(x=>x.phone&&x.phone.replace(/\D/g,'').includes(phoneNum));
+    if(c) showGreeting(c);
+    else{toast("Number not found — please register!");setTimeout(()=>kGo('ks-new'),1400);}
+  }catch(e){
+    console.error('kLookup:',e);
+    const c=DB.customers.find(x=>x.phone&&x.phone.replace(/\D/g,'').includes(phoneNum));
+    if(c) showGreeting(c);
+    else{toast("Number not found — please register!");setTimeout(()=>kGo('ks-new'),1400);}
+  }finally{
+    if(btn){btn.textContent='Find →';btn.disabled=false;}
+  }
 }
 function kSimQR(){showGreeting(DB.customers[0]);}
 function showGreeting(c){
@@ -1769,19 +1817,27 @@ function selectUpsell(el,svc){
   document.getElementById('kpi-up').textContent=DB.upsells;
   if(el.classList.contains('sel')) toast(`✨ ${svc} added to your visit!`);
 }
-function kRegister(){
+async function kRegister(){
   const name=document.getElementById('nname').value.trim();
   const phone=document.getElementById('nphone').value.replace(/\D/g,'');
   if(!name||phone.length<7){toast("⚠️ Please enter name and phone");return;}
-  const c={id:DB.customers.length+1,name,phone,visits:0,lastVisit:"Today",status:"new",rating:null,tech:"No preference",bday:document.getElementById('nbday').value,nextAppt:"—",svc:"—"};
-  DB.customers.push(c);
-  addCheckin(c,'newc');
-  DB.activities.unshift({type:'ai',title:'✨ New guest registered',desc:`${name} — welcome SMS queued`,time:'Just now'});
-  // Speak welcome for new guest
-  const newGreet = buildGreeting(c);
-  speakGreeting(newGreet);
-  kGo('ks-success');
-  updateCounters();
+  const c={name,phone,visits:0,lastVisit:"Today",status:"new",rating:null,tech:"No preference",
+    bday:document.getElementById('nbday').value||'',nextAppt:"—",svc:"—",
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+  try{
+    const ref=await FS.customers().add(c);
+    c._fid=ref.id;
+    DB.customers.push(c);
+    addCheckin(c,'newc');
+    fsAddActivity({type:'ai',title:'✨ New guest registered',desc:`${name} — welcome SMS queued`});
+    const newGreet=buildGreeting(c);
+    speakGreeting(newGreet);
+    kGo('ks-success');
+    updateCounters();
+  }catch(e){
+    console.error('kRegister:',e);
+    toast('⚠️ Lỗi lưu dữ liệu: '+e.message);
+  }
 }
 function kComplete(){kGo('ks-success');}
 function kReset(){
@@ -1796,11 +1852,25 @@ function kReset(){
 function addCheckin(c,type){
   const now=new Date();
   const t=now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-  DB.checkins.push({c,type,time:t,greeting:buildGreeting(c)});
-  const lbl={appt:'📅 Appointment check-in','walk':'🚶 Walk-in','newc':'✨ New guest'};
+  const greeting=buildGreeting(c);
+  DB.checkins.push({c,type,time:t,greeting});
+  const lbl={appt:'📅 Appointment check-in',walk:'🚶 Walk-in',newc:'✨ New guest'};
   DB.activities.unshift({type:'ci',title:lbl[type]||'Check-in',desc:`${c.name} · ${t}`,time:'Just now'});
   updateCounters();
   if(document.getElementById('staff').classList.contains('on')) renderStaff();
+  // Lưu Firestore
+  const data={customer:{name:c.name,phone:c.phone||'',visits:c.visits||0,tech:c.tech||'',
+    svc:c.svc||'',status:c.status||'regular',rating:c.rating||null},
+    type,time:t,greeting,date:TODAY,createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+  FS.checkins().add(data).catch(e=>console.error('checkin save:',e));
+  fsAddActivity({type:'ci',title:lbl[type]||'Check-in',desc:`${c.name} · ${t}`});
+  // Tăng visit count
+  if(c._fid&&type!=='newc'){
+    FS.customers().doc(c._fid).update({
+      visits:firebase.firestore.FieldValue.increment(1),
+      lastVisit:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'})
+    }).catch(e=>console.error('visit update:',e));
+  }
 }
 function updateCounters(){
   const ci=DB.checkins.length, nc=DB.checkins.filter(x=>x.type==='newc').length;
@@ -1865,17 +1935,29 @@ function bBack(step){
     if(i===step-2) w.classList.add('active');
   });
 }
-function bConfirm(){
+async function bConfirm(){
   const fname=document.getElementById('cf-fname').value.trim();
   const phone=document.getElementById('cf-phone').value.replace(/\D/g,'');
   if(!fname||phone.length<7){toast("⚠️ Name and phone required");return;}
   const fullName=`${fname} ${document.getElementById('cf-lname').value}`.trim();
-  DB.appointments.unshift({id:Date.now(),custId:null,name:fullName,time:booking.time,svc:booking.svc,tech:booking.tech?.split(' ')[0],status:'confirmed',channel:'online'});
-  DB.activities.unshift({type:'bk',title:'📅 New appointment booked',desc:`${fullName} — ${booking.svc} at ${booking.time} with ${booking.tech?.split(' ')[0]}`,time:'Just now'});
+  const techShort=booking.tech?.split(' ')[0];
+  const appt={name:fullName,phone,time:booking.time,svc:booking.svc,
+    tech:techShort,status:'confirmed',channel:'online',date:TODAY,
+    notes:document.getElementById('cf-notes').value||'',
+    email:document.getElementById('cf-email').value||'',
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+  // Local cache
+  DB.appointments.unshift({id:Date.now(),...appt});
+  DB.activities.unshift({type:'bk',title:'📅 New appointment booked',
+    desc:`${fullName} — ${booking.svc} at ${booking.time} with ${techShort}`,time:'Just now'});
   document.getElementById('sb-ap').textContent=parseInt(document.getElementById('sb-ap').textContent)+1;
   document.getElementById('kpi-ap').textContent=parseInt(document.getElementById('kpi-ap').textContent)+1;
-  toast(`✅ Appointment confirmed for ${fname}! SMS confirmation sent.`);
-  // Reset booking
+  toast(`✅ Appointment confirmed for ${fname}!`);
+  // Lưu Firestore
+  FS.appointments().add(appt).catch(e=>console.error('appt save:',e));
+  fsAddActivity({type:'bk',title:'📅 New appointment booked',
+    desc:`${fullName} — ${booking.svc} at ${booking.time} with ${techShort}`});
+  // Reset
   booking={svc:null,tech:null,date:null,time:null};
   ['bstep2','bstep3','bstep4'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('bstep1').style.display='block';
@@ -2551,6 +2633,79 @@ async function askDashAI(q) {
 }
 
 
+// ════════════════════════════════════════
+// FIREBASE HELPERS & REAL-TIME LISTENERS
+// ════════════════════════════════════════
+
+function fsAddActivity(act){
+  FS.activities().add({...act,time:'Just now',
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(e=>console.error('activity:',e));
+}
+
+function initFirestoreListeners(){
+  // ── Customers real-time ──
+  FS.customers().orderBy('name').onSnapshot(snap=>{
+    if(snap.empty) return;
+    DB.customers=snap.docs.map(d=>({_fid:d.id,...d.data()}));
+    updateCounters();
+    if(document.getElementById('dashboard').classList.contains('on')) renderDash();
+  },e=>console.error('customers listener:',e));
+
+  // ── Today's check-ins real-time ──
+  FS.checkins().where('date','==',TODAY)
+    .orderBy('createdAt','desc').onSnapshot(snap=>{
+      DB.checkins=snap.docs.map(d=>{
+        const d2=d.data();
+        return{c:d2.customer,type:d2.type,time:d2.time,greeting:d2.greeting};
+      });
+      updateCounters();
+      if(document.getElementById('staff').classList.contains('on')) renderStaff();
+    },e=>console.error('checkins listener:',e));
+
+  // ── Activities real-time ──
+  FS.activities().orderBy('createdAt','desc').limit(25).onSnapshot(snap=>{
+    DB.activities=snap.docs.map(d=>({...d.data()}));
+    if(document.getElementById('dashboard').classList.contains('on')) renderDash();
+  },e=>console.error('activities listener:',e));
+
+  // ── Today's appointments real-time ──
+  FS.appointments().where('date','==',TODAY)
+    .orderBy('createdAt','desc').onSnapshot(snap=>{
+      if(!snap.empty) DB.appointments=snap.docs.map(d=>({_fid:d.id,...d.data()}));
+      if(document.getElementById('dashboard').classList.contains('on')) renderDash();
+    },e=>console.error('appointments listener:',e));
+}
+
+async function seedDemoDataIfEmpty(){
+  try{
+    const snap=await FS.customers().limit(1).get();
+    if(!snap.empty){
+      console.log('Firestore: data exists, skip seed');
+      return;
+    }
+    console.log('Firestore: seeding demo data…');
+    toast('⏳ Đang tải dữ liệu mẫu lần đầu…');
+    const batch=fsdb.batch();
+    const ts=firebase.firestore.FieldValue.serverTimestamp();
+    DB.customers.forEach(c=>{
+      const ref=FS.customers().doc();
+      batch.set(ref,{name:c.name,phone:c.phone,visits:c.visits,lastVisit:c.lastVisit,
+        status:c.status,rating:c.rating||null,tech:c.tech||'',bday:c.bday||'',
+        nextAppt:c.nextAppt||'—',svc:c.svc||'—',createdAt:ts});
+    });
+    DB.appointments.forEach(a=>{
+      const ref=FS.appointments().doc();
+      batch.set(ref,{...a,date:TODAY,createdAt:ts});
+    });
+    await batch.commit();
+    toast('✅ Dữ liệu mẫu đã tải!');
+  }catch(e){
+    console.error('seed error:',e);
+    toast('⚠️ Firestore chưa sẵn sàng — dùng dữ liệu local');
+  }
+}
+
 // ── Init: restore saved keys into UI fields ──
 (function initSavedKeys() {
   const elKey = localStorage.getItem('jai_el_key');
@@ -2571,6 +2726,9 @@ async function askDashAI(q) {
 renderDash();
 renderBooking();
 updatePreview();
+// Firebase
+initFirestoreListeners();
+seedDemoDataIfEmpty();
 </script>
 </body>
 </html>
