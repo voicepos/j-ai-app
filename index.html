@@ -2406,14 +2406,15 @@ function toggleChat() {
   panel.classList.toggle('open', chatOpen);
   fab.textContent = chatOpen ? '✕' : '💬';
   if (chatOpen && chatHistory.length === 0) {
-    appendMsg('ai', "Hi! I'm J-AI, your virtual concierge at Riverland Nails Spa. 💅 How can I help you today?");
+    // addToHistory=false: lời chào đầu không thêm vào API history
+    appendMsg('ai', "Hi! I'm J-AI, your virtual concierge at Riverland Nails Spa. 💅 How can I help you today?", false);
     document.getElementById('chat-quick').style.display = 'flex';
   }
 }
 
-function appendMsg(role, text) {
+function appendMsg(role, text, addToHistory = true) {
   const apiRole = role === 'ai' ? 'assistant' : 'user';
-  chatHistory.push({role: apiRole, content: text});
+  if (addToHistory) chatHistory.push({role: apiRole, content: text});
   const msgs = document.getElementById('chat-messages');
   const now = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
   const div = document.createElement('div');
