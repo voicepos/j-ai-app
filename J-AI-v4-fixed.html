@@ -1293,6 +1293,19 @@ body{
         </div>
       </div>
 
+      <!-- Phone Call Log -->
+      <div class="unified-card" style="margin-bottom:18px;" id="call-log-card">
+        <div class="uc-head">
+          <span class="uc-title">📞 Phone AI — Call Log</span>
+          <span style="font-size:11px;color:rgba(100,90,80,0.4);">Cuộc gọi được AI xử lý hôm nay</span>
+        </div>
+        <div id="call-log-body" style="padding:14px;">
+          <div style="text-align:center;color:rgba(100,90,80,0.35);font-size:13px;padding:20px 0;">
+            Chưa có cuộc gọi nào hôm nay
+          </div>
+        </div>
+      </div>
+
       <div class="activity-card">
         <div class="ac-head">Live Activity Feed</div>
         <div class="ac-list" id="act-feed"></div>
@@ -1414,6 +1427,51 @@ Eyebrow Waxing (+$12)</textarea>
         <div style="margin-top:14px;">
           <button class="btn-gold" style="width:100%" onclick="saveConfig()">Save AI Settings ✓</button>
         </div>
+      </div>
+
+      <!-- Phone AI (Twilio) -->
+      <div class="config-card" style="border-top:3px solid var(--sky);">
+        <div class="cc-title">📞 Phone AI — Twilio</div>
+        <div class="cc-sub">AI tự động trả lời điện thoại và đặt lịch hẹn</div>
+        <div class="config-field">
+          <label class="cfg-label">Twilio Phone Number</label>
+          <input class="cfg-input" id="twilio-phone" placeholder="+1 (954) 555-0199" readonly style="background:rgba(58,111,168,0.05);color:rgba(100,90,80,0.5);">
+          <div style="font-size:11px;color:rgba(100,90,80,0.4);margin-top:4px;">Số này do Twilio cấp — khách gọi vào đây AI sẽ trả lời</div>
+        </div>
+        <div class="config-field">
+          <label class="cfg-label">Webhook URL (dán vào Twilio Console)</label>
+          <div style="display:flex;gap:8px;">
+            <input class="cfg-input" id="webhook-url" readonly
+              style="font-family:monospace;font-size:11px;background:rgba(58,111,168,0.05);"
+              value="https://your-app.vercel.app/api/voice">
+            <button class="btn-outline" onclick="copyWebhook()" style="flex-shrink:0;padding:0 12px;font-size:12px;">Copy</button>
+          </div>
+        </div>
+        <div class="config-field">
+          <div class="toggle-row">
+            <div class="tr-info"><div class="tn">AI answers all calls</div><div class="ts">100% cuộc gọi do AI xử lý</div></div>
+            <label class="tog"><input type="checkbox" id="ai-answers-all" checked><span class="tog-sl"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div class="tr-info"><div class="tn">AI answers after-hours only</div><div class="ts">Ngoài giờ làm việc AI mới tiếp</div></div>
+            <label class="tog"><input type="checkbox" id="ai-after-hours"><span class="tog-sl"></span></label>
+          </div>
+        </div>
+        <div style="background:rgba(58,111,168,0.06);border:1px solid rgba(58,111,168,0.2);border-radius:12px;padding:14px;margin-top:8px;">
+          <div style="font-size:12px;font-weight:600;color:var(--sky);margin-bottom:8px;">📋 Hướng dẫn setup (5 phút)</div>
+          <div style="font-size:12px;color:rgba(100,90,80,0.7);line-height:1.8;">
+            1. Tạo tài khoản tại <strong>twilio.com</strong> (miễn phí trial)<br>
+            2. Console → Phone Numbers → Buy a number (~$1.15/tháng)<br>
+            3. Click vào số → Voice Configuration<br>
+            4. Webhook URL: paste URL ở trên → Save<br>
+            5. Thêm vào Vercel: <code>ANTHROPIC_API_KEY</code>, <code>FIREBASE_SERVICE_ACCOUNT</code><br>
+            6. Gọi thử → AI sẽ trả lời!
+          </div>
+        </div>
+        <div style="margin-top:14px;">
+          <button class="btn-outline" onclick="testPhoneWebhook()" style="font-size:13px;padding:8px 16px;">🧪 Test Webhook</button>
+        </div>
+        <div id="phone-test-result" style="margin-top:8px;font-size:12px;display:none;"></div>
       </div>
 
       <!-- Appointment AI -->
@@ -1703,7 +1761,7 @@ function go(id,btn){
   document.getElementById(id).classList.add('on');
   document.querySelectorAll('.nt').forEach(t=>t.classList.remove('on'));
   if(btn) btn.classList.add('on');
-  if(id==='dashboard'){renderDash();setTimeout(loadDashInsights,400);}
+  if(id==='dashboard'){renderDash();setTimeout(loadDashInsights,400);setTimeout(loadCallLog,600);}
   if(id==='staff') renderStaff();
   if(id==='booking') renderBooking();
   if(id==='ai-config') updatePreview();
@@ -2632,6 +2690,71 @@ async function askDashAI(q) {
   }
 }
 
+
+// ════════════════════════════════════════
+// PHONE AI HELPERS
+// ════════════════════════════════════════
+
+function copyWebhook(){
+  const url=document.getElementById('webhook-url').value;
+  navigator.clipboard.writeText(url).then(()=>toast('✅ Webhook URL copied!')).catch(()=>{
+    document.getElementById('webhook-url').select();
+    document.execCommand('copy');
+    toast('✅ Copied!');
+  });
+}
+
+async function testPhoneWebhook(){
+  const res=document.getElementById('phone-test-result');
+  res.style.display='block';res.style.color='rgba(100,90,80,0.6)';
+  res.textContent='⏳ Testing webhook…';
+  try{
+    const r=await fetch('/api/status');
+    const d=await r.json();
+    res.style.color=d.status==='ok'?'var(--sage)':'var(--rose)';
+    res.innerHTML=`✅ API online · Claude: ${d.env.anthropic?'✓':'✗'} · Firebase: ${d.env.firebase?'✓':'✗'} · Twilio: ${d.env.twilio?'✓':'✗'}`;
+  }catch(e){
+    res.style.color='var(--rose)';
+    res.textContent='❌ API không phản hồi — kiểm tra Vercel deployment';
+  }
+}
+
+// Auto-fill webhook URL with current domain
+(function setWebhookUrl(){
+  const el=document.getElementById('webhook-url');
+  if(el&&window.location.hostname!=='localhost'){
+    el.value=`${window.location.origin}/api/voice`;
+  }
+})();
+
+// Load call log from Firestore
+async function loadCallLog(){
+  try{
+    const today=new Date().toISOString().split('T')[0];
+    const snap=await FS.appointments()
+      .where('channel','==','phone-ai')
+      .where('date','==',today)
+      .orderBy('createdAt','desc')
+      .get();
+    const el=document.getElementById('call-log-body');
+    if(!el)return;
+    if(snap.empty){
+      el.innerHTML='<div style="text-align:center;color:rgba(100,90,80,0.35);font-size:13px;padding:20px 0;">Chưa có cuộc gọi nào hôm nay</div>';
+      return;
+    }
+    el.innerHTML=snap.docs.map(d=>{
+      const a=d.data();
+      return`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div style="width:36px;height:36px;border-radius:50%;background:rgba(58,111,168,0.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">📞</div>
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:13px;">${a.name}</div>
+          <div style="font-size:12px;color:rgba(100,90,80,0.5);">${a.svc} · ${a.time} · ${a.phone||'—'}</div>
+        </div>
+        <span style="background:rgba(74,124,98,0.12);color:var(--sage);font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;">✓ Booked</span>
+      </div>`;
+    }).join('');
+  }catch(e){console.error('call log:',e);}
+}
 
 // ════════════════════════════════════════
 // FIREBASE HELPERS & REAL-TIME LISTENERS

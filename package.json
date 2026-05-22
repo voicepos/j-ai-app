@@ -1,0 +1,11 @@
+{
+  "name": "j-ai-salon",
+  "version": "1.0.0",
+  "description": "J-AI Smart Salon System",
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "firebase-admin": "^12.0.0",
+    "twilio": "^5.0.0"
+  }
+}
