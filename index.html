@@ -1414,25 +1414,122 @@ Eyebrow Waxing (+$12)</textarea>
         </div>
       </div>
 
+      <!-- Twilio Phone Integration -->
+      <div class="config-card" style="border-top:3px solid var(--sky);">
+        <div class="cc-title">📞 Twilio Phone Integration</div>
+        <div class="cc-sub">Kết nối AI với điện thoại salon — Người gọi → Twilio → J-AI → Salon</div>
+
+        <!-- Status indicator -->
+        <div id="twilio-status" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:10px 14px;background:var(--warm);border-radius:10px;border:1px solid var(--border);">
+          <span id="twilio-dot" style="width:10px;height:10px;border-radius:50%;background:#ccc;flex-shrink:0;"></span>
+          <span id="twilio-status-text" style="font-size:12px;color:rgba(100,90,80,0.6);">Chưa cấu hình — nhập thông tin bên dưới</span>
+        </div>
+
+        <!-- Account SID -->
+        <div class="config-field">
+          <label class="cfg-label">Twilio Account SID</label>
+          <input class="cfg-input" id="tw-sid" type="text" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" style="font-family:monospace;font-size:13px;">
+          <div style="margin-top:5px;font-size:11px;color:rgba(100,90,80,0.45);">Lấy tại console.twilio.com → Account Info</div>
+        </div>
+
+        <!-- Auth Token -->
+        <div class="config-field">
+          <label class="cfg-label">Twilio Auth Token</label>
+          <div style="display:flex;gap:8px;">
+            <input class="cfg-input" id="tw-token" type="password" placeholder="••••••••••••••••••••••••••••••••" style="flex:1;font-family:monospace;font-size:13px;">
+            <button class="btn-gold" onclick="toggleTwilioToken()" style="padding:10px 14px;white-space:nowrap;font-size:12px;">👁 Hiện</button>
+          </div>
+        </div>
+
+        <!-- Twilio Phone Number -->
+        <div class="config-field">
+          <label class="cfg-label">Số Twilio (AI sẽ dùng số này)</label>
+          <input class="cfg-input" id="tw-phone" type="tel" placeholder="+19545550100" style="font-family:monospace;">
+          <div style="margin-top:5px;font-size:11px;color:rgba(100,90,80,0.45);">Số điện thoại bạn mua trên Twilio (dạng +1...)</div>
+        </div>
+
+        <!-- Salon Phone (Forward) -->
+        <div class="config-field">
+          <label class="cfg-label">Số thật của salon (khi forward)</label>
+          <input class="cfg-input" id="tw-salon-phone" type="tel" placeholder="+19545550199">
+          <div style="margin-top:5px;padding:8px 10px;background:var(--sage-light);border-radius:8px;font-size:11px;color:var(--sage);line-height:1.5;">
+            📌 Khi AI không xử lý được (yêu cầu phức tạp, khách muốn nói chuyện người thật), cuộc gọi sẽ được chuyển tiếp đến số này.
+          </div>
+        </div>
+
+        <!-- Backend URL -->
+        <div class="config-field">
+          <label class="cfg-label">URL Server Backend</label>
+          <div style="display:flex;gap:8px;">
+            <input class="cfg-input" id="tw-server-url" type="url" placeholder="https://your-app.railway.app" style="flex:1;">
+            <button class="btn-gold" onclick="testServerHealth()" style="padding:10px 14px;white-space:nowrap;font-size:12px;">🔍 Test</button>
+          </div>
+          <div style="margin-top:6px;padding:8px 10px;background:var(--sky-light);border-radius:8px;font-size:11px;color:var(--sky);line-height:1.6;">
+            📋 Webhook URLs để dán vào Twilio Console:<br>
+            <code id="tw-webhook-voice" style="font-size:10px;background:rgba(58,111,168,0.1);padding:2px 6px;border-radius:4px;">[server-url]/voice/incoming</code><br>
+            <code id="tw-webhook-sms" style="font-size:10px;background:rgba(58,111,168,0.1);padding:2px 6px;border-radius:4px;">[server-url]/sms/incoming</code>
+          </div>
+        </div>
+
+        <!-- Language -->
+        <div class="config-field">
+          <label class="cfg-label">Ngôn ngữ AI trả lời</label>
+          <select class="cfg-input" id="tw-language" style="appearance:none">
+            <option value="vi-VN">🇻🇳 Tiếng Việt (vi-VN)</option>
+            <option value="en-US">🇺🇸 English (en-US)</option>
+          </select>
+        </div>
+
+        <!-- Toggles -->
+        <div class="config-field">
+          <div class="toggle-row">
+            <div class="tr-info"><div class="tn">AI trả lời cuộc gọi</div><div class="ts">Tự động đặt lịch qua giọng nói (Twilio Voice)</div></div>
+            <label class="tog"><input type="checkbox" id="tw-voice-enabled" checked><span class="tog-sl"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div class="tr-info"><div class="tn">AI trả lời SMS</div><div class="ts">Tự động đặt lịch qua tin nhắn (Twilio SMS)</div></div>
+            <label class="tog"><input type="checkbox" id="tw-sms-enabled" checked><span class="tog-sl"></span></label>
+          </div>
+        </div>
+
+        <!-- Save button -->
+        <button class="btn-gold" style="width:100%;margin-top:4px" onclick="saveTwilioConfig()">Lưu cấu hình Twilio ✓</button>
+
+        <!-- Setup guide -->
+        <details style="margin-top:16px;">
+          <summary style="cursor:pointer;font-size:12px;color:var(--sky);font-weight:600;padding:8px 0;">📖 Hướng dẫn cài đặt từng bước</summary>
+          <div style="margin-top:10px;padding:14px;background:var(--warm);border-radius:10px;font-size:12px;line-height:1.8;color:rgba(30,26,22,0.75);">
+            <strong>Bước 1:</strong> Đăng ký tài khoản tại <a href="https://twilio.com" target="_blank" style="color:var(--sky)">twilio.com</a><br>
+            <strong>Bước 2:</strong> Mua một số điện thoại (Phone Numbers → Buy a number)<br>
+            <strong>Bước 3:</strong> Deploy server backend (xem thư mục <code>/server</code> trong source code)<br>
+            &nbsp;&nbsp;→ Khuyến nghị: <a href="https://railway.app" target="_blank" style="color:var(--sky)">Railway.app</a> (free tier có sẵn)<br>
+            <strong>Bước 4:</strong> Nhập URL server vào ô "URL Server Backend" ở trên<br>
+            <strong>Bước 5:</strong> Copy webhook URLs và dán vào Twilio Console → Phone Numbers → [số của bạn]<br>
+            <strong>Bước 6:</strong> Nhập Account SID &amp; Auth Token → Lưu<br>
+            <strong>Bước 7:</strong> Gọi thử đến số Twilio và nói chuyện với J-AI! 🎉
+          </div>
+        </details>
+      </div>
+
       <!-- Appointment AI -->
       <div class="config-card">
-        <div class="cc-title">Appointment AI Behavior</div>
-        <div class="cc-sub">How AI handles phone & SMS bookings</div>
+        <div class="cc-title">🤖 Appointment AI Behavior</div>
+        <div class="cc-sub">Cách AI xử lý đặt lịch qua điện thoại &amp; SMS</div>
         <div class="config-field">
-          <label class="cfg-label">Salon Name (spoken by AI)</label>
-          <input class="cfg-input" value="Riverland Nails Spa">
+          <label class="cfg-label">Tên salon (AI sẽ xưng tên này)</label>
+          <input class="cfg-input" id="ai-salon-name" value="Riverland Nails Spa">
         </div>
         <div class="config-field">
-          <label class="cfg-label">AI Personality</label>
-          <select class="cfg-input" style="appearance:none">
-            <option>Warm & Friendly 😊</option>
-            <option>Professional & Efficient</option>
-            <option>Luxury & Elegant</option>
+          <label class="cfg-label">Tính cách AI</label>
+          <select class="cfg-input" id="ai-personality" style="appearance:none">
+            <option>Warm &amp; Friendly 😊</option>
+            <option>Professional &amp; Efficient</option>
+            <option>Luxury &amp; Elegant</option>
           </select>
         </div>
         <div class="config-field">
-          <label class="cfg-label">Services AI Can Book</label>
-          <textarea class="cfg-textarea" rows="5">Manicure ($25, 45 min)
+          <label class="cfg-label">Dịch vụ AI có thể đặt</label>
+          <textarea class="cfg-textarea" id="ai-services" rows="5">Manicure ($25, 45 min)
 Pedicure ($35, 60 min)
 Full Set Acrylic ($55, 90 min)
 Gel Manicure ($40, 60 min)
@@ -1440,14 +1537,8 @@ Full Set + Pedicure ($80, 120 min)
 Nail Art (from $10, +20 min)</textarea>
         </div>
         <div class="config-field">
-          <div class="toggle-row">
-            <div class="tr-info"><div class="tn">AI answers phone calls</div><div class="ts">Auto-book via voice (Twilio)</div></div>
-            <label class="tog"><input type="checkbox" checked><span class="tog-sl"></span></label>
-          </div>
-          <div class="toggle-row">
-            <div class="tr-info"><div class="tn">AI answers SMS/text</div><div class="ts">Auto-book via text message</div></div>
-            <label class="tog"><input type="checkbox" checked><span class="tog-sl"></span></label>
-          </div>
+          <label class="cfg-label">Giờ làm việc</label>
+          <input class="cfg-input" id="ai-hours" value="Monday-Saturday 9am-7pm, Sunday 10am-6pm">
         </div>
       </div>
 
@@ -2036,6 +2127,104 @@ function saveConfig(){updatePreview();toast('✅ AI settings saved — kiosk upd
 function fmtPhone(p){if(!p||p.length<7)return p;const d=p.replace(/\D/g,'');return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6,10)}`;}
 let toastT;
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),3000);}
+
+// ══════════════════════════════════════════
+// TWILIO PHONE INTEGRATION CONFIG
+// ══════════════════════════════════════════
+
+const TWILIO_CFG_KEY = 'j_ai_twilio_config';
+
+// Load saved config from localStorage
+function loadTwilioConfig() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TWILIO_CFG_KEY) || '{}');
+    if (saved.sid)        document.getElementById('tw-sid').value          = saved.sid;
+    if (saved.token)      document.getElementById('tw-token').value        = saved.token;
+    if (saved.phone)      document.getElementById('tw-phone').value        = saved.phone;
+    if (saved.salonPhone) document.getElementById('tw-salon-phone').value  = saved.salonPhone;
+    if (saved.serverUrl)  document.getElementById('tw-server-url').value   = saved.serverUrl;
+    if (saved.language)   document.getElementById('tw-language').value     = saved.language;
+    if (saved.voiceEnabled !== undefined) document.getElementById('tw-voice-enabled').checked = saved.voiceEnabled;
+    if (saved.smsEnabled !== undefined)   document.getElementById('tw-sms-enabled').checked   = saved.smsEnabled;
+    if (saved.serverUrl) updateWebhookUrls(saved.serverUrl);
+    updateTwilioStatus(saved);
+  } catch(e) { /* ignore */ }
+}
+
+function saveTwilioConfig() {
+  const cfg = {
+    sid:          document.getElementById('tw-sid').value.trim(),
+    token:        document.getElementById('tw-token').value.trim(),
+    phone:        document.getElementById('tw-phone').value.trim(),
+    salonPhone:   document.getElementById('tw-salon-phone').value.trim(),
+    serverUrl:    document.getElementById('tw-server-url').value.trim().replace(/\/$/, ''),
+    language:     document.getElementById('tw-language').value,
+    voiceEnabled: document.getElementById('tw-voice-enabled').checked,
+    smsEnabled:   document.getElementById('tw-sms-enabled').checked,
+  };
+  localStorage.setItem(TWILIO_CFG_KEY, JSON.stringify(cfg));
+  if (cfg.serverUrl) updateWebhookUrls(cfg.serverUrl);
+  updateTwilioStatus(cfg);
+  toast('✅ Twilio config saved — nhớ cập nhật webhook trên Twilio Console!');
+}
+
+function updateWebhookUrls(serverUrl) {
+  const v = document.getElementById('tw-webhook-voice');
+  const s = document.getElementById('tw-webhook-sms');
+  if (v) v.textContent = serverUrl ? `${serverUrl}/voice/incoming` : '[server-url]/voice/incoming';
+  if (s) s.textContent = serverUrl ? `${serverUrl}/sms/incoming`   : '[server-url]/sms/incoming';
+}
+
+function updateTwilioStatus(cfg) {
+  const dot  = document.getElementById('twilio-dot');
+  const text = document.getElementById('twilio-status-text');
+  if (!dot || !text) return;
+  const hasAll = cfg.sid && cfg.token && cfg.phone && cfg.salonPhone && cfg.serverUrl;
+  if (hasAll) {
+    dot.style.background  = '#4a7c62';
+    text.style.color      = '#4a7c62';
+    text.textContent      = `✓ Đã cấu hình — ${cfg.phone} → J-AI → ${cfg.salonPhone}`;
+  } else if (cfg.sid || cfg.serverUrl) {
+    dot.style.background  = '#e8b84b';
+    text.style.color      = '#9a7a20';
+    text.textContent      = '⚠ Chưa đầy đủ — điền các trường còn trống';
+  } else {
+    dot.style.background  = '#ccc';
+    text.style.color      = 'rgba(100,90,80,0.6)';
+    text.textContent      = 'Chưa cấu hình — nhập thông tin bên dưới';
+  }
+}
+
+function toggleTwilioToken() {
+  const inp = document.getElementById('tw-token');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+async function testServerHealth() {
+  const url = document.getElementById('tw-server-url').value.trim().replace(/\/$/, '');
+  if (!url) { toast('⚠️ Nhập URL server trước!'); return; }
+  toast('🔍 Đang kiểm tra server…');
+  try {
+    const res  = await fetch(`${url}/health`, { signal: AbortSignal.timeout(8000) });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      toast(`✅ Server OK — ${data.service || 'J-AI Voice Server'} | Active calls: ${data.activeCalls ?? 0}`);
+      document.getElementById('twilio-dot').style.background = '#4a7c62';
+    } else {
+      toast('⚠️ Server phản hồi nhưng trạng thái không OK');
+    }
+  } catch(e) {
+    toast(`❌ Không kết nối được server: ${e.message}`);
+    document.getElementById('twilio-dot').style.background = '#c45c6a';
+  }
+}
+
+// Cập nhật webhook URL preview khi user gõ
+document.addEventListener('DOMContentLoaded', () => {
+  loadTwilioConfig();
+  const urlInp = document.getElementById('tw-server-url');
+  if (urlInp) urlInp.addEventListener('input', e => updateWebhookUrls(e.target.value.trim()));
+});
 
 // ══════════════════════════════════════════
 // J-AI VOICE ENGINE — ElevenLabs + Fallback
