@@ -38,7 +38,7 @@ const SALON_PHONE    = process.env.SALON_PHONE_NUMBER;
 const TWILIO_PHONE   = process.env.TWILIO_PHONE_NUMBER;
 const BUSINESS_HOURS = process.env.BUSINESS_HOURS || 'Monday-Saturday 9am-7pm, Sunday 10am-6pm';
 const SERVICES       = (process.env.SERVICES || 'Manicure ($25)|Pedicure ($35)|Gel Manicure ($40)|Full Set ($55)').replace(/\|/g, '\n- ');
-const LANGUAGE       = process.env.DEFAULT_LANGUAGE || 'vi-VN';
+const LANGUAGE       = process.env.DEFAULT_LANGUAGE || 'en-US';
 const MAX_ATTEMPTS   = 4; // Số lần thử tối đa trước khi forward
 
 // ─── Validate Twilio signature (bảo mật) ─────────────────────────────────────
