@@ -1471,13 +1471,12 @@ Eyebrow Waxing (+$12)</textarea>
           </div>
         </div>
 
-        <!-- Language -->
+        <!-- Language: English only -->
         <div class="config-field">
-          <label class="cfg-label">Ngôn ngữ AI trả lời</label>
-          <select class="cfg-input" id="tw-language" style="appearance:none">
-            <option value="en-US">🇺🇸 English (en-US)</option>
-            <option value="vi-VN">🇻🇳 Tiếng Việt (vi-VN)</option>
-          </select>
+          <label class="cfg-label">Language</label>
+          <div style="padding:10px 14px;background:var(--sky-light);border-radius:10px;font-size:13px;color:var(--sky);font-weight:500;">
+            🇺🇸 English only — Polly.Joanna voice
+          </div>
         </div>
 
         <!-- Toggles -->
@@ -2143,7 +2142,6 @@ function loadTwilioConfig() {
     if (saved.phone)      document.getElementById('tw-phone').value        = saved.phone;
     if (saved.salonPhone) document.getElementById('tw-salon-phone').value  = saved.salonPhone;
     if (saved.serverUrl)  document.getElementById('tw-server-url').value   = saved.serverUrl;
-    if (saved.language)   document.getElementById('tw-language').value     = saved.language;
     if (saved.voiceEnabled !== undefined) document.getElementById('tw-voice-enabled').checked = saved.voiceEnabled;
     if (saved.smsEnabled !== undefined)   document.getElementById('tw-sms-enabled').checked   = saved.smsEnabled;
     if (saved.serverUrl) updateWebhookUrls(saved.serverUrl);
@@ -2158,7 +2156,6 @@ function saveTwilioConfig() {
     phone:        document.getElementById('tw-phone').value.trim(),
     salonPhone:   document.getElementById('tw-salon-phone').value.trim(),
     serverUrl:    document.getElementById('tw-server-url').value.trim().replace(/\/$/, ''),
-    language:     document.getElementById('tw-language').value,
     voiceEnabled: document.getElementById('tw-voice-enabled').checked,
     smsEnabled:   document.getElementById('tw-sms-enabled').checked,
   };

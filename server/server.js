@@ -1,20 +1,20 @@
 /**
  * J-AI Voice Server
- * Twilio + Claude AI phone assistant for Riverland Nails Spa
+ * Twilio + Claude AI phone assistant — English only
  *
- * Flow: Người gọi → Twilio → [server này] → Claude AI → TwiML response
- *       (nếu AI không xử lý được → forward đến số salon thật)
+ * Flow: Caller → Twilio → /voice/incoming → Claude AI → TwiML response
+ *       (if AI can't handle) → forward to salon's real phone number
  */
 
 require('dotenv').config();
-const express = require('express');
+const express    = require('express');
 const bodyParser = require('body-parser');
-const twilio = require('twilio');
-const Anthropic = require('@anthropic-ai/sdk');
+const twilio     = require('twilio');
+const Anthropic  = require('@anthropic-ai/sdk');
 
-// ─── Validation ──────────────────────────────────────────────────────────────
+// ─── Validation ───────────────────────────────────────────────────────────────
 const required = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'SALON_PHONE_NUMBER'];
-const missing = required.filter(k => !process.env[k]);
+const missing  = required.filter(k => !process.env[k]);
 if (missing.length) {
   console.error('❌ Missing required env vars:', missing.join(', '));
   console.error('   Copy .env.example → .env and fill in your keys.');
@@ -28,7 +28,7 @@ app.use(bodyParser.json());
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// Lưu session cuộc gọi trong memory (dùng Redis trong production)
+// Call sessions stored in memory — use Redis in production
 // Key: CallSid → { messages: [], callerNumber, attempts }
 const sessions = new Map();
 
@@ -36,14 +36,16 @@ const sessions = new Map();
 const SALON_NAME     = process.env.SALON_NAME     || 'Riverland Nails Spa';
 const SALON_PHONE    = process.env.SALON_PHONE_NUMBER;
 const TWILIO_PHONE   = process.env.TWILIO_PHONE_NUMBER;
-const BUSINESS_HOURS = process.env.BUSINESS_HOURS || 'Monday-Saturday 9am-7pm, Sunday 10am-6pm';
-const SERVICES       = (process.env.SERVICES || 'Manicure ($25)|Pedicure ($35)|Gel Manicure ($40)|Full Set ($55)').replace(/\|/g, '\n- ');
-const LANGUAGE       = process.env.DEFAULT_LANGUAGE || 'en-US';
-const MAX_ATTEMPTS   = 4; // Số lần thử tối đa trước khi forward
+const BUSINESS_HOURS = process.env.BUSINESS_HOURS || 'Monday–Saturday 9am–7pm, Sunday 10am–6pm';
+const SERVICES       = (process.env.SERVICES || 'Manicure ($25)|Pedicure ($35)|Gel Manicure ($40)|Full Set Acrylic ($55)|Full Set + Pedicure ($80)|Nail Art (from $10)').replace(/\|/g, '\n- ');
+const MAX_ATTEMPTS   = 4; // max no-speech attempts before forwarding
 
-// ─── Validate Twilio signature (bảo mật) ─────────────────────────────────────
+// Fixed: English only, Polly.Joanna voice
+const SAY_OPTS = { voice: 'Polly.Joanna', language: 'en-US' };
+
+// ─── Validate Twilio signature (security) ─────────────────────────────────────
 function validateTwilio(req, res, next) {
-  // Bỏ qua validation khi dev local
+  // Skip validation in local dev
   if (process.env.NODE_ENV === 'development' || !process.env.PUBLIC_URL) {
     return next();
   }
@@ -60,22 +62,10 @@ function validateTwilio(req, res, next) {
   next();
 }
 
-// ─── Helper: Build TwiML Say ──────────────────────────────────────────────────
-/**
- * Chọn giọng đọc phù hợp theo ngôn ngữ:
- *   vi-VN → Polly.Linh  (giọng Việt nữ)
- *   en-US → Polly.Joanna (giọng Anh nữ)
- */
-function sayOptions() {
-  return LANGUAGE === 'vi-VN'
-    ? { voice: 'Polly.Linh', language: 'vi-VN' }
-    : { voice: 'Polly.Joanna', language: 'en-US' };
-}
-
-// ─── Helper: Forward đến số salon thật ───────────────────────────────────────
+// ─── Helper: Forward call to real salon phone ─────────────────────────────────
 function forwardToSalon(twiml, res, announcement) {
   if (announcement) {
-    twiml.say(sayOptions(), announcement);
+    twiml.say(SAY_OPTS, announcement);
   }
   const dial = twiml.dial({ callerId: TWILIO_PHONE || undefined, timeout: 30 });
   dial.number(SALON_PHONE);
@@ -83,67 +73,61 @@ function forwardToSalon(twiml, res, announcement) {
   return res.send(twiml.toString());
 }
 
-// ─── Helper: Tạo system prompt cho Claude ────────────────────────────────────
+// ─── Helper: Build Claude system prompt ───────────────────────────────────────
 function buildSystemPrompt(callerNumber, today) {
-  const lang = LANGUAGE === 'vi-VN' ? 'Tiếng Việt' : 'English';
-  return `Bạn là J-AI, trợ lý AI điện thoại cho ${SALON_NAME}.
-Hôm nay: ${today}
-Ngôn ngữ giao tiếp: ${lang}
+  return `You are J-AI, the AI phone assistant for ${SALON_NAME}.
+Today is ${today}.
+Caller's phone number: ${callerNumber}
 
-Dịch vụ của salon:
+Services available:
 - ${SERVICES}
 
-Giờ làm việc: ${BUSINESS_HOURS}
-Số điện thoại khách gọi: ${callerNumber}
+Business hours: ${BUSINESS_HOURS}
 
-QUY TẮC QUAN TRỌNG:
-1. Câu trả lời NGẮN GỌN (tối đa 2-3 câu) — đây là cuộc gọi thoại, không phải chat.
-2. KHÔNG dùng markdown, dấu gạch đầu dòng, dấu *, hoặc ký tự đặc biệt.
-3. Nói tự nhiên, ấm áp, chuyên nghiệp.
-4. Nếu khách muốn đặt lịch: hỏi dịch vụ, ngày giờ mong muốn, tên khách hàng.
-5. Sau khi xác nhận đặt lịch thành công, thêm: [BOOKED: name=X, service=X, date=X, time=X]
-6. Nếu khách muốn nói chuyện với người thật hoặc yêu cầu phức tạp hơn, thêm: [FORWARD]
-7. Nếu cuộc trò chuyện đã hoàn tất (đã đặt lịch xong, không còn yêu cầu nào), thêm: [DONE]
-8. Không thêm nhiều tag một lúc.`;
+IMPORTANT RULES:
+1. Keep responses SHORT — 2 to 3 sentences max. This is a phone call, not a chat.
+2. Do NOT use markdown, bullet points, asterisks, or special characters. Speak naturally.
+3. Be warm, friendly, and professional.
+4. To book an appointment: ask for the service, preferred date and time, and the caller's name.
+5. Once an appointment is confirmed, append exactly: [BOOKED: name=X, service=X, date=X, time=X]
+6. If the caller wants to speak with a real person or the request is too complex, append exactly: [FORWARD]
+7. When the conversation is fully complete (appointment booked, all questions answered), append exactly: [DONE]
+8. Never append more than one tag per response.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ROUTES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ── 1. Cuộc gọi đến lần đầu ─────────────────────────────────────────────────
+// ── 1. Incoming call ──────────────────────────────────────────────────────────
 app.post('/voice/incoming', validateTwilio, (req, res) => {
   const twiml   = new twilio.twiml.VoiceResponse();
   const callSid = req.body.CallSid;
   const caller  = req.body.From || 'Unknown';
 
-  // Khởi tạo session
   sessions.set(callSid, { messages: [], callerNumber: caller, attempts: 0 });
-
   console.log(`📞 Incoming call | SID: ${callSid} | From: ${caller}`);
 
-  const loi_chao = LANGUAGE === 'vi-VN'
-    ? `Xin chào! Cảm ơn bạn đã gọi đến ${SALON_NAME}. Tôi là J-AI, trợ lý AI của salon. Tôi có thể giúp bạn đặt lịch, kiểm tra lịch trống, hoặc trả lời câu hỏi về dịch vụ. Bạn cần hỗ trợ gì ạ?`
-    : `Hello! Thank you for calling ${SALON_NAME}. I'm J-AI, your AI assistant. I can help you book an appointment, check availability, or answer questions about our services. How can I help you today?`;
+  const greeting = `Hello! Thank you for calling ${SALON_NAME}. I'm J-AI, your AI assistant. I can help you book an appointment, check availability, or answer questions about our services. How can I help you today?`;
 
   const gather = twiml.gather({
-    input:          'speech',
-    action:         '/voice/process',
-    method:         'POST',
-    timeout:        6,
-    speechTimeout:  'auto',
-    language:       LANGUAGE,
+    input:         'speech',
+    action:        '/voice/process',
+    method:        'POST',
+    timeout:       6,
+    speechTimeout: 'auto',
+    language:      'en-US',
   });
-  gather.say(sayOptions(), loi_chao);
+  gather.say(SAY_OPTS, greeting);
 
-  // Nếu không có đầu vào → lặp lại
+  // No input → repeat greeting
   twiml.redirect('/voice/incoming');
 
   res.type('text/xml');
   res.send(twiml.toString());
 });
 
-// ── 2. Xử lý giọng nói → Claude AI ──────────────────────────────────────────
+// ── 2. Process speech → Claude AI ────────────────────────────────────────────
 app.post('/voice/process', validateTwilio, async (req, res) => {
   const twiml        = new twilio.twiml.VoiceResponse();
   const callSid      = req.body.CallSid;
@@ -154,136 +138,118 @@ app.post('/voice/process', validateTwilio, async (req, res) => {
   session.attempts++;
   sessions.set(callSid, session);
 
-  // Không nhận được giọng nói
+  // No speech detected
   if (!speechResult || speechResult.trim() === '') {
     if (session.attempts >= MAX_ATTEMPTS) {
       return forwardToSalon(twiml, res,
-        LANGUAGE === 'vi-VN'
-          ? 'Tôi không nghe rõ bạn. Hãy để tôi kết nối bạn với nhân viên salon nhé.'
-          : 'I\'m having trouble hearing you. Let me connect you to our team.'
+        "I'm having trouble hearing you. Let me connect you to our team."
       );
     }
-
     const gather = twiml.gather({
       input:         'speech',
       action:        '/voice/process',
       method:        'POST',
       timeout:       6,
       speechTimeout: 'auto',
-      language:      LANGUAGE,
+      language:      'en-US',
     });
-    gather.say(sayOptions(),
-      LANGUAGE === 'vi-VN'
-        ? 'Xin lỗi, tôi không nghe rõ. Bạn có thể nói lại không ạ?'
-        : 'I\'m sorry, I didn\'t catch that. Could you please repeat?'
-    );
+    gather.say(SAY_OPTS, "I'm sorry, I didn't catch that. Could you please repeat?");
     res.type('text/xml');
     return res.send(twiml.toString());
   }
 
   console.log(`🎤 Speech: "${speechResult}" | SID: ${callSid}`);
-
-  // Thêm tin nhắn khách vào lịch sử
   session.messages.push({ role: 'user', content: speechResult });
 
   try {
-    const today = new Date().toLocaleDateString('vi-VN', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    const today = new Date().toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     });
 
-    // Gọi Claude API với prompt caching cho system prompt
+    // Call Claude with prompt caching on the system prompt
     const response = await anthropic.messages.create({
       model:      'claude-sonnet-4-6',
       max_tokens: 300,
       system: [
         {
-          type: 'text',
-          text: buildSystemPrompt(session.callerNumber, today),
-          cache_control: { type: 'ephemeral' },   // prompt caching → tiết kiệm token
-        }
+          type:          'text',
+          text:          buildSystemPrompt(session.callerNumber, today),
+          cache_control: { type: 'ephemeral' }, // saves tokens on repeated calls
+        },
       ],
       messages: session.messages,
     });
 
     const aiText = response.content[0].text.trim();
-    console.log(`🤖 AI reply: "${aiText}"`);
+    console.log(`🤖 AI: "${aiText}"`);
 
-    // Lưu câu trả lời AI vào session
     session.messages.push({ role: 'assistant', content: aiText });
     sessions.set(callSid, session);
 
-    // ── Phân tích tag đặc biệt ──────────────────────────────────────────────
+    // ── Parse special tags ────────────────────────────────────────────────────
 
-    // [FORWARD] → chuyển đến số thật
+    // [FORWARD] → transfer to real salon phone
     if (aiText.includes('[FORWARD]')) {
       const cleanText = aiText.replace('[FORWARD]', '').trim();
-      return forwardToSalon(twiml, res, cleanText ||
-        (LANGUAGE === 'vi-VN'
-          ? 'Hãy để tôi kết nối bạn với nhân viên salon nhé.'
-          : 'Let me connect you to our team.')
+      return forwardToSalon(twiml, res,
+        cleanText || 'Let me connect you to our team right away.'
       );
     }
 
-    // [DONE] → kết thúc cuộc gọi
+    // [DONE] → end the call gracefully
     if (aiText.includes('[DONE]')) {
       const cleanText = aiText.replace('[DONE]', '').trim();
-      if (cleanText) twiml.say(sayOptions(), cleanText);
-      twiml.say(sayOptions(),
-        LANGUAGE === 'vi-VN'
-          ? 'Cảm ơn bạn đã gọi đến. Hẹn gặp lại bạn tại salon!'
-          : 'Thank you for calling. We look forward to seeing you at the salon!'
-      );
+      if (cleanText) twiml.say(SAY_OPTS, cleanText);
+      twiml.say(SAY_OPTS, 'Thank you for calling. We look forward to seeing you at the salon!');
       twiml.hangup();
       sessions.delete(callSid);
       res.type('text/xml');
       return res.send(twiml.toString());
     }
 
-    // [BOOKED: ...] → đặt lịch thành công, log và tiếp tục
+    // [BOOKED: ...] → log booking, ask if anything else needed
     if (aiText.includes('[BOOKED:')) {
       const match = aiText.match(/\[BOOKED:(.*?)\]/);
       if (match) {
-        const bookingInfo = match[1].trim();
-        console.log(`✅ Booking created | ${bookingInfo} | Caller: ${session.callerNumber}`);
-        // TODO: gọi API booking system của bạn ở đây
-        // await createAppointment(bookingInfo, session.callerNumber);
+        console.log(`✅ Booking created | ${match[1].trim()} | Caller: ${session.callerNumber}`);
+        // TODO: call your booking API here
+        // await createAppointment(match[1], session.callerNumber);
       }
       const cleanText = aiText.replace(/\[BOOKED:.*?\]/g, '').trim();
 
-      // Tiếp tục hỏi xem có gì khác không
       const gather = twiml.gather({
         input:         'speech',
         action:        '/voice/process',
         method:        'POST',
         timeout:       5,
         speechTimeout: 'auto',
-        language:      LANGUAGE,
+        language:      'en-US',
       });
-      const follow_up = LANGUAGE === 'vi-VN' ? 'Bạn cần thêm gì nữa không ạ?' : 'Is there anything else I can help you with?';
-      gather.say(sayOptions(), cleanText ? `${cleanText} ${follow_up}` : follow_up);
+      const msg = cleanText
+        ? `${cleanText} Is there anything else I can help you with?`
+        : 'Is there anything else I can help you with?';
+      gather.say(SAY_OPTS, msg);
       twiml.redirect('/voice/incoming');
       res.type('text/xml');
       return res.send(twiml.toString());
     }
 
-    // Phản hồi bình thường → tiếp tục ghi âm
+    // Normal response → keep listening
     const gather = twiml.gather({
       input:         'speech',
       action:        '/voice/process',
       method:        'POST',
       timeout:       5,
       speechTimeout: 'auto',
-      language:      LANGUAGE,
+      language:      'en-US',
     });
-    gather.say(sayOptions(), aiText);
+    gather.say(SAY_OPTS, aiText);
     twiml.redirect('/voice/incoming');
 
   } catch (err) {
     console.error('❌ Claude API error:', err.message);
     return forwardToSalon(twiml, res,
-      LANGUAGE === 'vi-VN'
-        ? 'Xin lỗi, có sự cố kỹ thuật. Hãy để tôi kết nối bạn với nhân viên salon.'
-        : 'I apologize for the technical issue. Let me connect you to our team.'
+      'I apologize for the technical issue. Let me connect you to our team.'
     );
   }
 
@@ -291,7 +257,7 @@ app.post('/voice/process', validateTwilio, async (req, res) => {
   res.send(twiml.toString());
 });
 
-// ── 3. SMS đến ────────────────────────────────────────────────────────────────
+// ── 3. Incoming SMS ───────────────────────────────────────────────────────────
 app.post('/sms/incoming', validateTwilio, async (req, res) => {
   const twiml        = new twilio.twiml.MessagingResponse();
   const body         = req.body.Body?.trim() || '';
@@ -300,8 +266,8 @@ app.post('/sms/incoming', validateTwilio, async (req, res) => {
   console.log(`💬 SMS from ${senderNumber}: "${body}"`);
 
   try {
-    const today = new Date().toLocaleDateString('vi-VN', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    const today = new Date().toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     });
 
     const response = await anthropic.messages.create({
@@ -310,19 +276,20 @@ app.post('/sms/incoming', validateTwilio, async (req, res) => {
       system: [
         {
           type: 'text',
-          text: `Bạn là J-AI, trợ lý AI của ${SALON_NAME} qua SMS.
-Hôm nay: ${today}
-Dịch vụ: ${SERVICES}
-Giờ làm việc: ${BUSINESS_HOURS}
-Số khách nhắn tin: ${senderNumber}
+          text: `You are J-AI, the AI SMS assistant for ${SALON_NAME}.
+Today is ${today}.
+Services: ${SERVICES}
+Business hours: ${BUSINESS_HOURS}
+Customer's number: ${senderNumber}
 
-QUY TẮC:
-- Trả lời NGẮN GỌN (dưới 160 ký tự nếu có thể, tối đa 320 ký tự).
-- Không dùng markdown phức tạp.
-- Nếu đặt lịch thành công: thêm [BOOKED: name=X, service=X, date=X, time=X].
-- Nếu cần nhân viên xử lý: thêm [NEEDS_HUMAN].`,
+RULES:
+- Reply in English only.
+- Keep replies SHORT (under 160 characters if possible, 320 max).
+- No markdown or special formatting.
+- If booking is confirmed, append: [BOOKED: name=X, service=X, date=X, time=X]
+- If a staff member needs to follow up, append: [NEEDS_HUMAN]`,
           cache_control: { type: 'ephemeral' },
-        }
+        },
       ],
       messages: [{ role: 'user', content: body }],
     });
@@ -338,14 +305,14 @@ QUY TẮC:
     if (aiText.includes('[NEEDS_HUMAN]')) {
       aiText = aiText.replace('[NEEDS_HUMAN]', '').trim();
       if (aiText) twiml.message(aiText);
-      twiml.message(`Nhân viên của chúng tôi sẽ liên hệ lại với bạn sớm nhé! Hoặc gọi thẳng: ${SALON_PHONE}`);
+      twiml.message(`Our team will get back to you shortly! Or call us directly at ${SALON_PHONE}.`);
     } else {
       twiml.message(aiText);
     }
 
   } catch (err) {
     console.error('❌ SMS AI error:', err.message);
-    twiml.message(`Cảm ơn tin nhắn của bạn! Nhân viên sẽ phản hồi sớm nhất. Gọi ngay: ${SALON_PHONE}`);
+    twiml.message(`Thanks for your message! Our team will reply shortly. Call us at ${SALON_PHONE}.`);
   }
 
   res.type('text/xml');
@@ -358,30 +325,29 @@ app.get('/health', (req, res) => {
     status:      'ok',
     service:     'J-AI Voice & SMS Server',
     salon:       SALON_NAME,
+    language:    'en-US',
     activeCalls: sessions.size,
     timestamp:   new Date().toISOString(),
   });
 });
 
-// ── 5. Webhook test (dev only) ────────────────────────────────────────────────
+// ── 5. TwiML test (dev only) ──────────────────────────────────────────────────
 app.get('/test-twiml', (req, res) => {
   const twiml = new twilio.twiml.VoiceResponse();
-  twiml.say(sayOptions(), `Xin chào! Đây là ${SALON_NAME}. J-AI đã sẵn sàng.`);
+  twiml.say(SAY_OPTS, `Hello! This is ${SALON_NAME}. J-AI is ready.`);
   twiml.hangup();
   res.type('text/xml');
   res.send(twiml.toString());
 });
 
-// ── 6. Dọn session cũ (mỗi giờ) ─────────────────────────────────────────────
+// ── 6. Clean up stale sessions every hour ────────────────────────────────────
 setInterval(() => {
-  const cutoff = Date.now() - 2 * 60 * 60 * 1000; // 2 giờ
-  for (const [sid, _] of sessions) {
-    // Xóa session không hoạt động (không có createdAt → xóa hết khi restart)
+  for (const [sid] of sessions) {
     sessions.delete(sid);
   }
 }, 60 * 60 * 1000);
 
-// ─── Start ─────────────────────────────────────────────────────────────────────
+// ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log('');
@@ -390,20 +356,22 @@ app.listen(PORT, () => {
   console.log('╠══════════════════════════════════════╣');
   console.log(`║  Port     : ${PORT.toString().padEnd(26)}║`);
   console.log(`║  Salon    : ${SALON_NAME.substring(0, 26).padEnd(26)}║`);
-  console.log(`║  Language : ${LANGUAGE.padEnd(26)}║`);
+  console.log(`║  Language : ${'English (en-US)'.padEnd(26)}║`);
+  console.log(`║  Voice    : ${'Polly.Joanna'.padEnd(26)}║`);
   console.log('╠══════════════════════════════════════╣');
-  console.log('║  Webhook endpoints:                  ║');
-  console.log('║  POST /voice/incoming  (Twilio call) ║');
-  console.log('║  POST /voice/process   (AI handler)  ║');
-  console.log('║  POST /sms/incoming    (Twilio SMS)  ║');
-  console.log('║  GET  /health          (status)      ║');
+  console.log('║  Endpoints:                          ║');
+  console.log('║  POST /voice/incoming  (call)        ║');
+  console.log('║  POST /voice/process   (AI)          ║');
+  console.log('║  POST /sms/incoming    (SMS)         ║');
+  console.log('║  GET  /health                        ║');
   console.log('╚══════════════════════════════════════╝');
   console.log('');
   if (process.env.PUBLIC_URL) {
-    console.log(`🌐 Twilio Voice Webhook: ${process.env.PUBLIC_URL}/voice/incoming`);
-    console.log(`💬 Twilio SMS Webhook  : ${process.env.PUBLIC_URL}/sms/incoming`);
+    console.log(`🌐 Voice Webhook: ${process.env.PUBLIC_URL}/voice/incoming`);
+    console.log(`💬 SMS Webhook  : ${process.env.PUBLIC_URL}/sms/incoming`);
   } else {
-    console.log('⚠️  PUBLIC_URL not set — set it in .env for Twilio webhooks.');
-    console.log('   For local dev: npx ngrok http 3000  →  copy https URL to .env');
+    console.log('⚠️  PUBLIC_URL not set in .env');
+    console.log('   Local dev: npx ngrok http 3000  →  copy URL to .env');
   }
+  console.log('');
 });
