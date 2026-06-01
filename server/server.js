@@ -1,5 +1,5 @@
 /**
- * J-AI Voice Server
+ * Eva Voice Server
  * Twilio + Claude AI phone assistant — English only
  *
  * Flow: Caller → Twilio → /voice/incoming → Claude AI → TwiML response
@@ -75,7 +75,7 @@ function forwardToSalon(twiml, res, announcement) {
 
 // ─── Helper: Build Claude system prompt ───────────────────────────────────────
 function buildSystemPrompt(callerNumber, today) {
-  return `You are J-AI, the AI phone assistant for ${SALON_NAME}.
+  return `You are Eva, the AI phone assistant for ${SALON_NAME}.
 Today is ${today}.
 Caller's phone number: ${callerNumber}
 
@@ -108,7 +108,7 @@ app.post('/voice/incoming', validateTwilio, (req, res) => {
   sessions.set(callSid, { messages: [], callerNumber: caller, attempts: 0 });
   console.log(`📞 Incoming call | SID: ${callSid} | From: ${caller}`);
 
-  const greeting = `Hello! Thank you for calling ${SALON_NAME}. I'm J-AI, your AI assistant. I can help you book an appointment, check availability, or answer questions about our services. How can I help you today?`;
+  const greeting = `Hello! Thank you for calling ${SALON_NAME}. I'm Eva, your AI assistant. I can help you book an appointment, check availability, or answer questions about our services. How can I help you today?`;
 
   const gather = twiml.gather({
     input:         'speech',
@@ -276,7 +276,7 @@ app.post('/sms/incoming', validateTwilio, async (req, res) => {
       system: [
         {
           type: 'text',
-          text: `You are J-AI, the AI SMS assistant for ${SALON_NAME}.
+          text: `You are Eva, the AI SMS assistant for ${SALON_NAME}.
 Today is ${today}.
 Services: ${SERVICES}
 Business hours: ${BUSINESS_HOURS}
@@ -323,7 +323,7 @@ RULES:
 app.get('/health', (req, res) => {
   res.json({
     status:      'ok',
-    service:     'J-AI Voice & SMS Server',
+    service:     'Eva Voice & SMS Server',
     salon:       SALON_NAME,
     language:    'en-US',
     activeCalls: sessions.size,
@@ -334,7 +334,7 @@ app.get('/health', (req, res) => {
 // ── 5. TwiML test (dev only) ──────────────────────────────────────────────────
 app.get('/test-twiml', (req, res) => {
   const twiml = new twilio.twiml.VoiceResponse();
-  twiml.say(SAY_OPTS, `Hello! This is ${SALON_NAME}. J-AI is ready.`);
+  twiml.say(SAY_OPTS, `Hello! This is ${SALON_NAME}. Eva is ready.`);
   twiml.hangup();
   res.type('text/xml');
   res.send(twiml.toString());
@@ -352,7 +352,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log('');
   console.log('╔══════════════════════════════════════╗');
-  console.log('║   J-AI Voice Server  🤖📞            ║');
+  console.log('║   Eva Voice Server  🤖📞             ║');
   console.log('╠══════════════════════════════════════╣');
   console.log(`║  Port     : ${PORT.toString().padEnd(26)}║`);
   console.log(`║  Salon    : ${SALON_NAME.substring(0, 26).padEnd(26)}║`);

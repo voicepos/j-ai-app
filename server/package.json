@@ -1,7 +1,7 @@
 {
-  "name": "j-ai-voice-server",
+  "name": "eva-voice-server",
   "version": "1.0.0",
-  "description": "J-AI Voice Server — Twilio + Claude AI phone assistant for Riverland Nails Spa",
+  "description": "Eva Voice Server — Twilio + Claude AI phone assistant for Riverland Nails Spa",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
