@@ -1,8 +1,8 @@
 /**
  * Eva Voice Server
- * Twilio + Claude AI phone assistant — English only
+ * Twilio + OpenAI phone assistant — English only
  *
- * Flow: Caller → Twilio → /voice/incoming → Claude AI → TwiML response
+ * Flow: Caller → Twilio → /voice/incoming → OpenAI → TwiML response
  *       (if AI can't handle) → forward to salon's real phone number
  */
 
@@ -10,10 +10,10 @@ require('dotenv').config();
 const express    = require('express');
 const bodyParser = require('body-parser');
 const twilio     = require('twilio');
-const Anthropic  = require('@anthropic-ai/sdk');
+const OpenAI     = require('openai');
 
 // ─── Validation ───────────────────────────────────────────────────────────────
-const required = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'SALON_PHONE_NUMBER'];
+const required = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'OPENAI_API_KEY', 'SALON_PHONE_NUMBER'];
 const missing  = required.filter(k => !process.env[k]);
 if (missing.length) {
   console.error('❌ Missing required env vars:', missing.join(', '));
@@ -26,7 +26,7 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Call sessions stored in memory — use Redis in production
 // Key: CallSid → { messages: [], callerNumber, attempts }
@@ -38,26 +38,28 @@ const SALON_PHONE    = process.env.SALON_PHONE_NUMBER;
 const TWILIO_PHONE   = process.env.TWILIO_PHONE_NUMBER;
 const BUSINESS_HOURS = process.env.BUSINESS_HOURS || 'Monday–Saturday 9am–7pm, Sunday 10am–6pm';
 const SERVICES       = (process.env.SERVICES || 'Manicure ($25)|Pedicure ($35)|Gel Manicure ($40)|Full Set Acrylic ($55)|Full Set + Pedicure ($80)|Nail Art (from $10)').replace(/\|/g, '\n- ');
-const MAX_ATTEMPTS   = 4; // max no-speech attempts before forwarding
+const MAX_ATTEMPTS   = 4;
 
-// Fixed: English only, Polly.Joanna voice
 const SAY_OPTS = { voice: 'Polly.Joanna', language: 'en-US' };
 
 // ─── Validate Twilio signature (security) ─────────────────────────────────────
 function validateTwilio(req, res, next) {
-  // Skip validation in local dev
   if (process.env.NODE_ENV === 'development' || !process.env.PUBLIC_URL) {
     return next();
   }
-  const valid = twilio.validateRequest(
-    process.env.TWILIO_AUTH_TOKEN,
-    `${process.env.PUBLIC_URL}${req.originalUrl}`,
-    req.body,
-    req.headers['x-twilio-signature']
-  );
-  if (!valid) {
-    console.warn('⚠️  Invalid Twilio signature — request rejected');
-    return res.status(403).send('Forbidden');
+  try {
+    const valid = twilio.validateRequest(
+      process.env.TWILIO_AUTH_TOKEN,
+      `${process.env.PUBLIC_URL}${req.originalUrl}`,
+      req.body,
+      req.headers['x-twilio-signature']
+    );
+    if (!valid) {
+      console.warn('⚠️  Invalid Twilio signature — request rejected');
+      return res.status(403).send('Forbidden');
+    }
+  } catch (err) {
+    console.warn('⚠️  Twilio validation error:', err.message);
   }
   next();
 }
@@ -73,7 +75,7 @@ function forwardToSalon(twiml, res, announcement) {
   return res.send(twiml.toString());
 }
 
-// ─── Helper: Build Claude system prompt ───────────────────────────────────────
+// ─── Helper: Build system prompt ──────────────────────────────────────────────
 function buildSystemPrompt(callerNumber, today) {
   return `You are Eva, the AI phone assistant for ${SALON_NAME}.
 Today is ${today}.
@@ -120,14 +122,13 @@ app.post('/voice/incoming', validateTwilio, (req, res) => {
   });
   gather.say(SAY_OPTS, greeting);
 
-  // No input → repeat greeting
   twiml.redirect('/voice/incoming');
 
   res.type('text/xml');
   res.send(twiml.toString());
 });
 
-// ── 2. Process speech → Claude AI ────────────────────────────────────────────
+// ── 2. Process speech → OpenAI ────────────────────────────────────────────────
 app.post('/voice/process', validateTwilio, async (req, res) => {
   const twiml        = new twilio.twiml.VoiceResponse();
   const callSid      = req.body.CallSid;
@@ -138,7 +139,6 @@ app.post('/voice/process', validateTwilio, async (req, res) => {
   session.attempts++;
   sessions.set(callSid, session);
 
-  // No speech detected
   if (!speechResult || speechResult.trim() === '') {
     if (session.attempts >= MAX_ATTEMPTS) {
       return forwardToSalon(twiml, res,
@@ -166,29 +166,21 @@ app.post('/voice/process', validateTwilio, async (req, res) => {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     });
 
-    // Call Claude with prompt caching on the system prompt
-    const response = await anthropic.messages.create({
-      model:      'claude-sonnet-4-6',
+    const response = await openai.chat.completions.create({
+      model:      'gpt-4o-mini',
       max_tokens: 300,
-      system: [
-        {
-          type:          'text',
-          text:          buildSystemPrompt(session.callerNumber, today),
-          cache_control: { type: 'ephemeral' }, // saves tokens on repeated calls
-        },
+      messages: [
+        { role: 'system', content: buildSystemPrompt(session.callerNumber, today) },
+        ...session.messages,
       ],
-      messages: session.messages,
     });
 
-    const aiText = response.content[0].text.trim();
+    const aiText = response.choices[0].message.content.trim();
     console.log(`🤖 AI: "${aiText}"`);
 
     session.messages.push({ role: 'assistant', content: aiText });
     sessions.set(callSid, session);
 
-    // ── Parse special tags ────────────────────────────────────────────────────
-
-    // [FORWARD] → transfer to real salon phone
     if (aiText.includes('[FORWARD]')) {
       const cleanText = aiText.replace('[FORWARD]', '').trim();
       return forwardToSalon(twiml, res,
@@ -196,7 +188,6 @@ app.post('/voice/process', validateTwilio, async (req, res) => {
       );
     }
 
-    // [DONE] → end the call gracefully
     if (aiText.includes('[DONE]')) {
       const cleanText = aiText.replace('[DONE]', '').trim();
       if (cleanText) twiml.say(SAY_OPTS, cleanText);
@@ -207,13 +198,10 @@ app.post('/voice/process', validateTwilio, async (req, res) => {
       return res.send(twiml.toString());
     }
 
-    // [BOOKED: ...] → log booking, ask if anything else needed
     if (aiText.includes('[BOOKED:')) {
       const match = aiText.match(/\[BOOKED:(.*?)\]/);
       if (match) {
         console.log(`✅ Booking created | ${match[1].trim()} | Caller: ${session.callerNumber}`);
-        // TODO: call your booking API here
-        // await createAppointment(match[1], session.callerNumber);
       }
       const cleanText = aiText.replace(/\[BOOKED:.*?\]/g, '').trim();
 
@@ -234,7 +222,6 @@ app.post('/voice/process', validateTwilio, async (req, res) => {
       return res.send(twiml.toString());
     }
 
-    // Normal response → keep listening
     const gather = twiml.gather({
       input:         'speech',
       action:        '/voice/process',
@@ -247,7 +234,7 @@ app.post('/voice/process', validateTwilio, async (req, res) => {
     twiml.redirect('/voice/incoming');
 
   } catch (err) {
-    console.error('❌ Claude API error:', err.message);
+    console.error('❌ OpenAI API error:', err.message);
     return forwardToSalon(twiml, res,
       'I apologize for the technical issue. Let me connect you to our team.'
     );
@@ -270,13 +257,13 @@ app.post('/sms/incoming', validateTwilio, async (req, res) => {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     });
 
-    const response = await anthropic.messages.create({
-      model:      'claude-sonnet-4-6',
+    const response = await openai.chat.completions.create({
+      model:      'gpt-4o-mini',
       max_tokens: 300,
-      system: [
+      messages: [
         {
-          type: 'text',
-          text: `You are Eva, the AI SMS assistant for ${SALON_NAME}.
+          role: 'system',
+          content: `You are Eva, the AI SMS assistant for ${SALON_NAME}.
 Today is ${today}.
 Services: ${SERVICES}
 Business hours: ${BUSINESS_HOURS}
@@ -288,13 +275,12 @@ RULES:
 - No markdown or special formatting.
 - If booking is confirmed, append: [BOOKED: name=X, service=X, date=X, time=X]
 - If a staff member needs to follow up, append: [NEEDS_HUMAN]`,
-          cache_control: { type: 'ephemeral' },
         },
+        { role: 'user', content: body },
       ],
-      messages: [{ role: 'user', content: body }],
     });
 
-    let aiText = response.content[0].text.trim();
+    let aiText = response.choices[0].message.content.trim();
 
     if (aiText.includes('[BOOKED:')) {
       const match = aiText.match(/\[BOOKED:(.*?)\]/);
@@ -370,8 +356,7 @@ app.listen(PORT, () => {
     console.log(`🌐 Voice Webhook: ${process.env.PUBLIC_URL}/voice/incoming`);
     console.log(`💬 SMS Webhook  : ${process.env.PUBLIC_URL}/sms/incoming`);
   } else {
-    console.log('⚠️  PUBLIC_URL not set in .env');
-    console.log('   Local dev: npx ngrok http 3000  →  copy URL to .env');
+    console.log('⚠️  PUBLIC_URL not set — Twilio signature validation disabled');
   }
   console.log('');
 });
